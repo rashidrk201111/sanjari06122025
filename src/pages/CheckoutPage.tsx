@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 import { Button } from "../components/ui/button";
 import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -70,38 +71,29 @@ export function CheckoutPage() {
     };
   }, []);
 
-  // Fetch payment settings
+  // Set payment settings to only show PhonePe
   useEffect(() => {
-    const fetchPaymentSettings = async () => {
-      try {
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-a145b27b/payment-settings`,
-          {
-            headers: {
-              Authorization: `Bearer ${publicAnonKey}`,
-            },
-          }
-        );
-        
-        if (response.ok) {
-          const settings = await response.json();
-          setPaymentSettings(settings);
-          
-          // Set default payment method based on what's enabled
-          if (settings.razorpay?.enabled) {
-            setPaymentMethod("razorpay");
-          } else if (settings.phonepe?.enabled) {
-            setPaymentMethod("phonepe");
-          } else if (settings.codEnabled) {
-            setPaymentMethod("cod");
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching payment settings:", error);
-      }
+    console.log("Setting up payment settings...");
+    
+    // Always use these settings regardless of database
+    const phonepeSettings = {
+      razorpay: { 
+        enabled: false,  // Disable Razorpay
+        key: '', 
+        testMode: true 
+      },
+      phonepe: { 
+        enabled: true,   // Always enable PhonePe
+        merchantId: 'PGTESTPAYUAT',
+        testMode: true 
+      },
+      codEnabled: true,  // Keep COD enabled
+      testMode: true
     };
 
-    fetchPaymentSettings();
+    console.log("Payment settings:", phonepeSettings);
+    setPaymentSettings(phonepeSettings);
+    setPaymentMethod("phonepe"); // Set PhonePe as default payment method
   }, []);
 
   // Update form data when user logs in
@@ -703,102 +695,56 @@ export function CheckoutPage() {
               <Card className="p-6">
                 <h2 className="text-xl text-gray-900 mb-6">Payment Method</h2>
                 
-                {!paymentSettings ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                    <span className="ml-2 text-gray-600">Loading payment methods...</span>
-                  </div>
-                ) : (
-                  <>
-                    <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
-                      <div className="space-y-3">
-                        {/* Razorpay - supports UPI, Cards, Net Banking */}
-                        {paymentSettings.razorpay?.enabled && (
-                          <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50">
-                            <RadioGroupItem value="razorpay" id="razorpay" />
-                            <Label htmlFor="razorpay" className="flex items-center gap-3 cursor-pointer flex-1">
-                              <CreditCard className="w-5 h-5 text-blue-600" />
-                              <div>
-                                <p className="text-gray-900">Razorpay Payment Gateway</p>
-                                <p className="text-sm text-gray-500">UPI, Cards, Net Banking, Wallets</p>
-                              </div>
-                            </Label>
-                            {paymentSettings.razorpay.testMode && (
-                              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Test Mode</span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* PhonePe */}
-                        {paymentSettings.phonepe?.enabled && (
-                          <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50">
-                            <RadioGroupItem value="phonepe" id="phonepe" />
-                            <Label htmlFor="phonepe" className="flex items-center gap-3 cursor-pointer flex-1">
-                              <Wallet className="w-5 h-5 text-purple-600" />
-                              <div>
-                                <p className="text-gray-900">PhonePe</p>
-                                <p className="text-sm text-gray-500">Pay using PhonePe UPI</p>
-                              </div>
-                            </Label>
-                            {paymentSettings.phonepe.testMode && (
-                              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Test Mode</span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Cash on Delivery */}
-                        {paymentSettings.codEnabled && (
-                          <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50">
-                            <RadioGroupItem value="cod" id="cod" />
-                            <Label htmlFor="cod" className="flex items-center gap-3 cursor-pointer flex-1">
-                              <IndianRupee className="w-5 h-5 text-orange-600" />
-                              <div>
-                                <p className="text-gray-900">Cash on Delivery</p>
-                                <p className="text-sm text-gray-500">Pay when you receive</p>
-                              </div>
-                            </Label>
-                          </div>
-                        )}
-
-                        {/* No payment methods enabled */}
-                        {!paymentSettings.razorpay?.enabled && 
-                         !paymentSettings.phonepe?.enabled && 
-                         !paymentSettings.codEnabled && (
-                          <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p className="text-sm text-yellow-800">
-                              No payment methods are currently enabled. Please contact support.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </RadioGroup>
-
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-sm text-blue-900">
-                        🔒 Your payment information is secure and encrypted
-                      </p>
+                <RadioGroup value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                  <div className="space-y-3">
+                    {/* PhonePe - Always shown */}
+                    <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50">
+                      <RadioGroupItem value="phonepe" id="phonepe" checked={true} />
+                      <Label htmlFor="phonepe" className="flex items-center gap-3 cursor-pointer flex-1">
+                        <Wallet className="w-5 h-5 text-purple-600" />
+                        <div>
+                          <p className="text-gray-900">PhonePe</p>
+                          <p className="text-sm text-gray-500">Pay using PhonePe UPI</p>
+                        </div>
+                      </Label>
+                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Test Mode</span>
                     </div>
 
-                    <Button 
-                      onClick={handlePayment} 
-                      className="w-full mt-6 bg-green-600 hover:bg-green-700" 
-                      size="lg"
-                      disabled={processing || !paymentSettings || 
-                        (!paymentSettings.razorpay?.enabled && 
-                         !paymentSettings.phonepe?.enabled && 
-                         !paymentSettings.codEnabled)}
-                    >
-                      {processing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>Place Order & Pay ₹{total}</>
-                      )}
-                    </Button>
-                  </>
-                )}
+                    {/* Cash on Delivery */}
+                    <div className="flex items-center space-x-3 border rounded-lg p-4 cursor-pointer hover:bg-gray-50">
+                      <RadioGroupItem value="cod" id="cod" />
+                      <Label htmlFor="cod" className="flex items-center gap-3 cursor-pointer flex-1">
+                        <IndianRupee className="w-5 h-5 text-orange-600" />
+                        <div>
+                          <p className="text-gray-900">Cash on Delivery</p>
+                          <p className="text-sm text-gray-500">Pay when you receive</p>
+                        </div>
+                      </Label>
+                    </div>
+                  </div>
+                </RadioGroup>
+
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-900">
+                    🔒 Your payment information is secure and encrypted
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={handlePayment} 
+                  className="w-full mt-6 bg-green-600 hover:bg-green-700" 
+                  size="lg"
+                  disabled={processing}
+                >
+                  {processing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>Place Order & Pay ₹{total}</>
+                  )}
+                </Button>
               </Card>
             )}
           </div>

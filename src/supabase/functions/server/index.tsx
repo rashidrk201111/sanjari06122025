@@ -15,17 +15,40 @@ const supabase = createClient(
 // Enable logger
 app.use('*', logger(console.log));
 
-// Enable CORS for all routes and methods
-app.use(
-  "/*",
-  cors({
-    origin: "*",
-    allowHeaders: ["Content-Type", "Authorization"],
-    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    exposeHeaders: ["Content-Length"],
-    maxAge: 600,
-  }),
-);
+// CORS middleware with proper configuration
+const corsMiddleware = async (c: any, next: any) => {
+  // Get the origin from the request
+  const origin = c.req.header('origin') || '*';
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://sanjari-prints.vercel.app',
+    'https://sanjari-prints.vercel.app',
+    'https://sanjari-prints-git-main-rashidrk2011.vercel.app',
+    'https://sanjari-prints-rashidrk2011.vercel.app'
+  ];
+
+  // If the request origin is in the allowed origins, use it, otherwise use the first allowed origin
+  const allowedOrigin = allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+
+  // Set CORS headers
+  c.header('Access-Control-Allow-Origin', allowedOrigin);
+  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-VERIFY, X-MERCHANT-ID');
+  c.header('Access-Control-Allow-Credentials', 'true');
+  c.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type, X-VERIFY');
+  c.header('Access-Control-Max-Age', '86400');
+
+  // Handle preflight requests
+  if (c.req.method === 'OPTIONS') {
+    return c.text('', 204);
+  }
+
+  await next();
+};
+
+// Apply CORS to all routes
+app.use('*', corsMiddleware);
 
 // Health check endpoint
 app.get("/make-server-a145b27b/health", (c) => {
@@ -312,11 +335,27 @@ app.post("/make-server-a145b27b/verify-razorpay-payment", async (c) => {
 // Create PhonePe payment
 app.post("/make-server-a145b27b/create-phonepe-payment", async (c) => {
   try {
-    const body = await c.req.json();
+    let body;
+    try {
+      body = await c.req.json();
+      console.log("Received PhonePe payment request:", JSON.stringify(body, null, 2));
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return c.json({ 
+        success: false,
+        error: "Invalid JSON payload",
+        details: e instanceof Error ? e.message : 'Unknown error'
+      }, 400);
+    }
+    
     const { amount, merchantTransactionId, merchantUserId, redirectUrl, callbackUrl } = body;
 
     if (!amount || !merchantTransactionId) {
-      return c.json({ error: "Amount and transaction ID are required" }, 400);
+      console.error("Missing required fields:", { amount, merchantTransactionId });
+      return c.json({ 
+        error: "Amount and transaction ID are required",
+        details: { received: { amount, merchantTransactionId } }
+      }, 400);
     }
 
     console.log("Creating PhonePe payment for amount:", amount);
@@ -328,22 +367,39 @@ app.post("/make-server-a145b27b/create-phonepe-payment", async (c) => {
       return c.json({ error: "PhonePe is not enabled" }, 400);
     }
 
-    const merchantId = settings.phonepe.merchantId;
-    const saltKey = settings.phonepe.saltKey;
-    const saltIndex = settings.phonepe.saltIndex || "1";
-    const testMode = settings.phonepe.testMode;
+    const merchantId = settings?.phonepe?.merchantId;
+    const saltKey = settings?.phonepe?.saltKey;
+    const saltIndex = settings?.phonepe?.saltIndex || "1";
+    const testMode = settings?.phonepe?.testMode || false;
 
     if (!merchantId || !saltKey) {
-      return c.json({ error: "PhonePe credentials not configured" }, 400);
+      console.error("Missing PhonePe credentials in settings");
+      return c.json({ 
+        success: false,
+        error: "PhonePe credentials not properly configured",
+        details: { 
+          hasMerchantId: !!merchantId, 
+          hasSaltKey: !!saltKey,
+          settings: {
+            merchantId: merchantId ? '***' + merchantId.slice(-4) : 'missing',
+            saltKey: saltKey ? '***' + saltKey.slice(-4) : 'missing',
+            saltIndex,
+            testMode
+          }
+        }
+      }, 400);
     }
 
     // Prepare payment request
+    // Ensure amount is a number and round to nearest integer
+    const amountInPaise = Math.round(Number(amount) * 100);
+    
     const paymentPayload = {
       merchantId: merchantId,
       merchantTransactionId: merchantTransactionId,
       merchantUserId: merchantUserId || `user_${Date.now()}`,
-      amount: Math.round(amount * 100), // Convert to paise
-      redirectUrl: redirectUrl || `${Deno.env.get("SUPABASE_URL")}/functions/v1/make-server-a145b27b/phonepe-callback`,
+      amount: amountInPaise,
+      redirectUrl: redirectUrl || `${window.location.origin}/checkout/status`,
       redirectMode: "POST",
       callbackUrl: callbackUrl || `${Deno.env.get("SUPABASE_URL")}/functions/v1/make-server-a145b27b/phonepe-callback`,
       mobileNumber: "",
@@ -351,15 +407,22 @@ app.post("/make-server-a145b27b/create-phonepe-payment", async (c) => {
         type: "PAY_PAGE"
       }
     };
+    
+    console.log("Payment payload:", JSON.stringify(paymentPayload, null, 2));
 
     // Encode payload to base64
     const base64Payload = btoa(JSON.stringify(paymentPayload));
+    console.log("Base64 payload:", base64Payload);
 
-    // Generate checksum
-    const crypto = await import("node:crypto");
-    const checksumString = `${base64Payload}/pg/v1/pay${saltKey}`;
-    const checksum = crypto.createHash("sha256").update(checksumString).digest("hex");
-    const xVerify = `${checksum}###${saltIndex}`;
+    try {
+      // Generate checksum
+      const crypto = await import("node:crypto");
+      const checksumString = `${base64Payload}/pg/v1/pay${saltKey}`;
+      console.log("Checksum string:", checksumString);
+      
+      const checksum = crypto.createHash("sha256").update(checksumString).digest("hex");
+      const xVerify = `${checksum}###${saltIndex}`;
+      console.log("X-VERIFY header:", xVerify);
 
     // Determine API endpoint based on test mode
     const apiUrl = testMode 
@@ -367,47 +430,129 @@ app.post("/make-server-a145b27b/create-phonepe-payment", async (c) => {
       : "https://api.phonepe.com/apis/hermes/pg/v1/pay";
 
     console.log("PhonePe API URL:", apiUrl);
+    
+    // Log test mode status
+    console.log(`PhonePe test mode: ${testMode ? 'ENABLED' : 'DISABLED'}`);
 
-    // Make API request
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-VERIFY": xVerify
-      },
-      body: JSON.stringify({
-        request: base64Payload
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("PhonePe API error:", errorData);
-      throw new Error(`PhonePe API error: ${errorData}`);
-    }
-
-    const result = await response.json();
-    console.log("PhonePe payment initiated:", result);
-
-    if (result.success && result.data?.instrumentResponse?.redirectInfo?.url) {
-      return c.json({
-        success: true,
-        redirectUrl: result.data.instrumentResponse.redirectInfo.url,
-        merchantTransactionId: merchantTransactionId
+      // Prepare request options
+      const requestOptions = {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-VERIFY": xVerify,
+          "X-CLIENT-ID": merchantId,
+          "X-CALLBACK-URL": callbackUrl || `${Deno.env.get("SUPABASE_URL")}/functions/v1/make-server-a145b27b/phonepe-callback`
+        },
+        body: JSON.stringify({
+          request: base64Payload
+        })
+      };
+      
+      console.log("Sending request to PhonePe API:", {
+        url: apiUrl,
+        ...requestOptions,
+        headers: {
+          ...requestOptions.headers,
+          "X-VERIFY": "***" + (xVerify ? xVerify.slice(-10) : '')
+        },
+        body: {
+          request: base64Payload.substring(0, 30) + "..."
+        }
       });
-    } else {
-      throw new Error("PhonePe payment initiation failed");
+      
+      // Make API request
+      const response = await fetch(apiUrl, requestOptions);
+
+      const responseText = await response.text();
+      let result;
+      
+      try {
+        result = responseText ? JSON.parse(responseText) : {};
+        console.log("Raw PhonePe API response:", responseText);
+      } catch (e) {
+        console.error("Failed to parse PhonePe response:", responseText);
+        console.error("Parse error:", e);
+        throw new Error(`Invalid response from PhonePe API: ${responseText.substring(0, 200)}...`);
+      }
+
+      console.log("PhonePe API response:", {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        result: {
+          ...result,
+          data: result.data ? {
+            ...result.data,
+            merchantTransactionId: result.data.merchantTransactionId || 'not-provided',
+            transactionId: result.data.transactionId || 'not-provided',
+            instrumentResponse: result.data.instrumentResponse ? 'present' : 'missing',
+            responseCode: result.data.responseCode || 'not-provided',
+            responseMessage: result.data.responseMessage || 'not-provided',
+          } : 'no-data'
+        }
+      });
+
+      if (!response.ok) {
+        console.error("PhonePe API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: responseText
+        });
+        
+        let errorMessage = `PhonePe API error: ${response.status} ${response.statusText}`;
+        
+        if (result) {
+          errorMessage = result?.message || 
+                        result?.error?.message || 
+                        result?.data?.message ||
+                        errorMessage;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      if (result.success && result.data?.instrumentResponse?.redirectInfo?.url) {
+        const redirectUrl = result.data.instrumentResponse.redirectInfo.url;
+        console.log("Payment initiated successfully. Redirecting to:", redirectUrl);
+        
+        return c.json({
+          success: true,
+          redirectUrl: redirectUrl
+        });
+    }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      console.error("Error creating PhonePe payment:", {
+        error: errorMessage,
+        stack: errorStack,
+        timestamp: new Date().toISOString()
+      });
+      
+      return c.json({ 
+        success: false,
+        error: errorMessage,
+        timestamp: new Date().toISOString(),
+        details: Deno.env.get("NODE_ENV") === 'development' ? {
+          message: errorMessage,
+          stack: errorStack
+        } : undefined
+      }, 500);
     }
   } catch (error) {
-    console.error("Error creating PhonePe payment:", error);
-    return c.json({ 
-      error: error instanceof Error ? error.message : "Failed to create PhonePe payment" 
+    console.error("Unexpected error in PhonePe payment handler:", error);
+    return c.json({
+      success: false,
+      error: "An unexpected error occurred",
+      timestamp: new Date().toISOString()
     }, 500);
   }
 });
 
 // PhonePe payment callback/webhook
-app.post("/make-server-a145b27b/phonepe-callback", async (c) => {
+// ...
   try {
     const body = await c.req.json();
     console.log("PhonePe callback received:", body);

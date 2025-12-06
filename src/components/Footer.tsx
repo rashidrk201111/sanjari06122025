@@ -212,11 +212,6 @@ export function Footer() {
         {/* Bottom Bar */}
         <div className="border-t border-gray-300 pt-6 text-sm text-center text-gray-600">
           <p>&copy; 2025 {siteSettings.siteName}. All rights reserved.</p>
-          <div className="mt-2">
-            <Link to="/admin/login" className="text-xs text-gray-500 hover:text-blue-600 transition-colors">
-              Admin Portal
-            </Link>
-          </div>
         </div>
       </div>
     </footer>
