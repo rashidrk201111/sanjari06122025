@@ -8,24 +8,106 @@ import { CreditCard, Save, Shield, DollarSign, AlertCircle, CheckCircle2, Eye, E
 import { toast } from "sonner@2.0.3";
 import { PaymentGateway } from "../../context/AdminContext";
 import { Alert, AlertDescription } from "../ui/alert";
+import { Badge } from "../ui/badge";
+import { API_BASE } from "../../lib/apiBase";
+import { adminJsonHeaders } from "../../lib/adminAuthHeaders";
+import { projectId, publicAnonKey } from "../../utils/supabase/info";
 
 interface PaymentSettingsTabProps {
   paymentGateway: PaymentGateway;
-  updatePaymentGateway: (settings: Partial<PaymentGateway>) => void;
+  updatePaymentGateway: (settings: Partial<PaymentGateway>) => Promise<void>;
 }
 
 export function PaymentSettingsTab({ paymentGateway, updatePaymentGateway }: PaymentSettingsTabProps) {
   const [editedPayment, setEditedPayment] = useState(paymentGateway);
   const [showRazorpaySecret, setShowRazorpaySecret] = useState(false);
   const [showPhonePeSalt, setShowPhonePeSalt] = useState(false);
+  const [syncState, setSyncState] = useState<"idle" | "checking" | "ok" | "mismatch" | "error">("idle");
+  const [syncMessage, setSyncMessage] = useState("Not checked yet");
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     setEditedPayment(paymentGateway);
   }, [paymentGateway]);
 
-  const handleSavePayment = () => {
-    updatePaymentGateway(editedPayment);
+  const formatDateTime = (date: Date) =>
+    date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+  const verifyCheckoutSync = async (settingsToCompare: PaymentGateway = editedPayment) => {
+    setSyncState("checking");
+    setSyncMessage("Checking checkout sync...");
+    setLastCheckedAt(new Date());
+
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/payments/settings/`,
+        {
+          method: "GET",
+          headers: await adminJsonHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to read checkout payment settings");
+      }
+
+      const backendSettings = await response.json();
+
+      const publicFieldsMatch =
+        backendSettings?.codEnabled === settingsToCompare.codEnabled &&
+        backendSettings?.razorpay?.enabled === settingsToCompare.razorpay.enabled &&
+        backendSettings?.razorpay?.testMode === settingsToCompare.razorpay.testMode &&
+        backendSettings?.phonepe?.enabled === settingsToCompare.phonepe.enabled &&
+        backendSettings?.phonepe?.testMode === settingsToCompare.phonepe.testMode &&
+        (backendSettings?.phonepe?.saltIndex || "1") === (settingsToCompare.phonepe.saltIndex || "1");
+
+      if (publicFieldsMatch) {
+        const now = new Date();
+        setSyncState("ok");
+        setSyncMessage("Checkout is using latest admin payment settings.");
+        setLastCheckedAt(now);
+        setLastSyncedAt(now);
+      } else {
+        setSyncState("mismatch");
+        setSyncMessage("Checkout settings do not match current admin values yet.");
+        setLastCheckedAt(new Date());
+      }
+    } catch (error) {
+      console.error("Error verifying checkout sync:", error);
+      setSyncState("error");
+      setSyncMessage("Could not verify checkout sync. Check edge function deployment.");
+      setLastCheckedAt(new Date());
+    }
+  };
+
+  const handleSavePayment = async () => {
+    await updatePaymentGateway(editedPayment);
     toast.success("Payment gateway settings updated successfully!");
+    await verifyCheckoutSync(editedPayment);
+  };
+
+  const getSyncBadge = () => {
+    if (syncState === "checking") {
+      return <Badge variant="outline">Checking...</Badge>;
+    }
+    if (syncState === "ok") {
+      return <Badge className="bg-green-100 text-green-800 border-green-300">Sync OK</Badge>;
+    }
+    if (syncState === "mismatch") {
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">Out of Sync</Badge>;
+    }
+    if (syncState === "error") {
+      return <Badge className="bg-red-100 text-red-800 border-red-300">Sync Error</Badge>;
+    }
+    return <Badge variant="outline">Not Checked</Badge>;
   };
 
   return (
@@ -38,11 +120,34 @@ export function PaymentSettingsTab({ paymentGateway, updatePaymentGateway }: Pay
             Configure payment methods for your customers
           </p>
         </div>
-        <Button onClick={handleSavePayment} className="bg-green-600 hover:bg-green-700">
-          <Save className="w-4 h-4 mr-2" />
-          Save Payment Settings
-        </Button>
+        <div className="flex items-center gap-2">
+          {getSyncBadge()}
+          <Button type="button" variant="outline" onClick={() => verifyCheckoutSync()}>
+            Check Sync
+          </Button>
+          <Button onClick={handleSavePayment} className="bg-green-600 hover:bg-green-700">
+            <Save className="w-4 h-4 mr-2" />
+            Save Payment Settings
+          </Button>
+        </div>
       </div>
+
+      <Alert className={syncState === "ok" ? "border-green-300 bg-green-50" : ""}>
+        {syncState === "ok" ? (
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+        ) : (
+          <AlertCircle className="h-4 w-4" />
+        )}
+        <AlertDescription className={syncState === "ok" ? "text-green-800" : ""}>
+          <div><strong>Checkout Sync Status:</strong> {syncMessage}</div>
+          <div className="mt-1 text-xs opacity-80">
+            Last checked: {lastCheckedAt ? formatDateTime(lastCheckedAt) : "Not checked yet"}
+          </div>
+          <div className="text-xs opacity-80">
+            Last sync OK: {lastSyncedAt ? formatDateTime(lastSyncedAt) : "No successful sync yet"}
+          </div>
+        </AlertDescription>
+      </Alert>
 
       {/* Security Warning */}
       <Alert className="border-yellow-300 bg-yellow-50">

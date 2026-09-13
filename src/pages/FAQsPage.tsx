@@ -6,6 +6,7 @@ import {
 } from "../components/ui/accordion";
 import { useAdmin } from "../context/AdminContext";
 import { Link } from "react-router-dom";
+import { PageHeader } from "../components/PageHeader";
 
 export function FAQsPage() {
   const { pageContent, siteSettings } = useAdmin();
@@ -26,15 +27,11 @@ export function FAQsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl lg:text-5xl mb-4 text-center">Frequently Asked Questions</h1>
-          <p className="text-xl text-center max-w-3xl mx-auto">
-            Find answers to common questions about our printing services
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Frequently Asked Questions"
+        subtitle="Find answers to common questions about our printing services"
+        breadcrumbs={[{ label: "FAQs" }]}
+      />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {hasFAQs ? (

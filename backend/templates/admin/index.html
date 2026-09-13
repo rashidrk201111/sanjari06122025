@@ -1,0 +1,124 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static log %}
+
+{% block bodyclass %}{{ block.super }} dashboard{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+
+{% block content %}
+  <div class="dashboard-shell simple-dashboard">
+    <section class="dashboard-hero compact-hero">
+      <div>
+        <h1>Sanjari Control Panel</h1>
+        <p>Use these sections to update the live website, pricing, customer orders, users, payments, and shipping.</p>
+      </div>
+      <div class="dashboard-actions">
+        <a class="dashboard-action" href="/" target="_blank" rel="noopener">Open Website</a>
+        <a class="dashboard-action" href="/track-order" target="_blank" rel="noopener">Track Order</a>
+      </div>
+    </section>
+
+    <section class="workflow-grid" aria-label="Main workflows">
+      <article class="workflow-card">
+        <div class="workflow-icon">1</div>
+        <h2>Website Content</h2>
+        <p>Hero poster/slides, homepage text, site settings, FAQs, reviews, and SEO.</p>
+        <div class="workflow-links">
+          <a href="{% url 'admin:payments_contentpage_changelist' %}">Hero & Pages</a>
+          <a href="{% url 'admin:payments_faq_changelist' %}">FAQs</a>
+          <a href="{% url 'admin:payments_review_changelist' %}">Reviews</a>
+          <a href="{% url 'admin:payments_seosetting_changelist' %}">SEO</a>
+        </div>
+      </article>
+
+      <article class="workflow-card">
+        <div class="workflow-icon">2</div>
+        <h2>Products</h2>
+        <p>Product names, descriptions, poster/image URLs, base prices, and specifications.</p>
+        <div class="workflow-links">
+          <a href="{% url 'admin:payments_product_changelist' %}">Manage Products</a>
+          <a href="{% url 'admin:payments_product_add' %}">Add Product</a>
+        </div>
+      </article>
+
+      <article class="workflow-card">
+        <div class="workflow-icon">3</div>
+        <h2>Price Calculator</h2>
+        <p>Rules used by frontend calculator and backend checkout amount validation.</p>
+        <div class="workflow-links">
+          <a href="{% url 'admin:payments_pricingrule_changelist' %}">Pricing Rules</a>
+          <a href="{% url 'admin:payments_pricingrule_add' %}">Add Rule</a>
+        </div>
+      </article>
+
+      <article class="workflow-card">
+        <div class="workflow-icon">4</div>
+        <h2>Orders</h2>
+        <p>Paid orders, delivery address, tracking number, payment state, and internal Django orders.</p>
+        <div class="workflow-links">
+          <a href="{% url 'admin:payments_publicorder_changelist' %}">Website Orders</a>
+          <a href="{% url 'admin:payments_order_changelist' %}">Backend Orders</a>
+          <a href="{% url 'admin:payments_payment_changelist' %}">Payment Transactions</a>
+        </div>
+      </article>
+
+      <article class="workflow-card">
+        <div class="workflow-icon">5</div>
+        <h2>Users</h2>
+        <p>Customer profile records from the live website database.</p>
+        <div class="workflow-links">
+          <a href="{% url 'admin:payments_supabaseuser_changelist' %}">Website Users</a>
+          <a href="{% url 'admin:auth_user_changelist' %}">Admin Logins</a>
+        </div>
+      </article>
+
+      <article class="workflow-card">
+        <div class="workflow-icon">6</div>
+        <h2>Payment & Shipping</h2>
+        <p>PhonePe/Razorpay/COD settings, Shiprocket pickup, shipments, labels, and logs.</p>
+        <div class="workflow-links">
+          <a href="{% url 'admin:payments_paymentgatewaysetting_changelist' %}">Gateway Settings</a>
+          <a href="{% url 'admin:payments_sitesetting_changelist' %}">Packaging & Shipping Charges</a>
+          <a href="{% url 'admin:payments_shiprocketsettings_changelist' %}">Shiprocket Settings</a>
+          <a href="{% url 'admin:payments_shiprocketshipment_changelist' %}">Shipments</a>
+          <a href="{% url 'admin:payments_shiprocketlog_changelist' %}">Shipping Logs</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="dashboard-bottom">
+      <div class="module simple-help">
+        <h2>Best Workflow</h2>
+        <ol>
+          <li>Update content, products, or pricing from the matching section above.</li>
+          <li>Open the website and check the live page or checkout calculator.</li>
+          <li>For orders, update payment/delivery status and add tracking details when Shiprocket gives AWB.</li>
+        </ol>
+      </div>
+
+      <div class="module" id="recent-actions-module">
+        <h2>{% translate 'Recent actions' %}</h2>
+        {% get_admin_log 6 as admin_log for_user user %}
+        {% if not admin_log %}
+          <p>{% translate 'None available' %}</p>
+        {% else %}
+          <ul class="actionlist">
+            {% for entry in admin_log %}
+              <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+                {% if entry.is_deletion or not entry.get_admin_url %}
+                  {{ entry.object_repr }}
+                {% else %}
+                  <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+                {% endif %}
+                <br>
+                {% if entry.content_type %}
+                  <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

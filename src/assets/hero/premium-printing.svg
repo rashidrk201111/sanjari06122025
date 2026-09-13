@@ -1,0 +1,38 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Premium printing studio illustration">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="50%" stop-color="#1e40af"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#dbeafe"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g opacity="0.18">
+    <circle cx="1300" cy="120" r="220" fill="#93c5fd"/>
+    <circle cx="240" cy="780" r="260" fill="#67e8f9"/>
+  </g>
+
+  <g transform="translate(180 170)">
+    <rect x="0" y="70" width="1240" height="500" rx="28" fill="#0b1220" opacity="0.32"/>
+    <rect x="120" y="0" width="980" height="540" rx="32" fill="#1e293b"/>
+
+    <rect x="180" y="54" width="860" height="380" rx="22" fill="url(#card)"/>
+    <rect x="230" y="108" width="420" height="34" rx="10" fill="#2563eb"/>
+    <rect x="230" y="158" width="640" height="16" rx="8" fill="#94a3b8"/>
+    <rect x="230" y="186" width="600" height="16" rx="8" fill="#cbd5e1"/>
+    <rect x="230" y="214" width="680" height="16" rx="8" fill="#cbd5e1"/>
+
+    <g transform="translate(230 258)">
+      <rect x="0" y="0" width="220" height="92" rx="14" fill="#38bdf8"/>
+      <rect x="238" y="0" width="220" height="92" rx="14" fill="#1d4ed8"/>
+      <rect x="476" y="0" width="220" height="92" rx="14" fill="#0f766e"/>
+    </g>
+
+    <rect x="760" y="452" width="280" height="58" rx="12" fill="#22c55e"/>
+    <text x="900" y="490" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="800" fill="#ffffff">PRINT READY</text>
+  </g>
+</svg>

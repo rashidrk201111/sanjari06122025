@@ -1,5 +1,5 @@
 runtime: nodejs20
-service: sanjari-app
+service: default
 
 # Basic scaling configuration
 automatic_scaling:

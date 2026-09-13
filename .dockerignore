@@ -10,8 +10,9 @@ yarn-error.log
 /.next
 /out
 
-# Environment variables
-.env
+# Environment variables (exclude local/sensitive variants, keep .env for Vite build)
+backend/.env
+backend/.env.*
 .env.*.local
 .env.local
 .env.development.local

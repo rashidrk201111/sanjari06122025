@@ -1,0 +1,226 @@
+<div class="pricing-options-editor" data-price-key="{{ widget.price_key }}">
+  <input type="hidden" name="{{ widget.name }}" id="{{ widget.attrs.id }}" value="{{ widget.value|default:'[]' }}">
+  <div class="pricing-options-head" aria-hidden="true">
+    <span>Customer option</span>
+    <span>{{ widget.price_label }}</span>
+    <span>Active</span>
+    <span>Default</span>
+    <span></span>
+  </div>
+  <div class="pricing-options-rows"></div>
+  <button type="button" class="pricing-option-add">+ Add option</button>
+</div>
+
+<style>
+  .pricing-options-editor {
+    width: min(100%, 980px);
+    padding: 14px;
+    border: 1px solid #dce3ee;
+    border-radius: 8px;
+    background: #f8fafc;
+    box-sizing: border-box;
+  }
+
+  .pricing-options-head,
+  .pricing-option-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) 72px 76px 42px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .pricing-options-head {
+    padding: 0 4px 8px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .pricing-options-rows {
+    display: grid;
+    gap: 8px;
+  }
+
+  .pricing-option-row {
+    padding: 9px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #fff;
+  }
+
+  .pricing-option-row input[type="text"],
+  .pricing-option-row input[type="number"] {
+    width: 100%;
+    min-width: 0;
+    height: 38px;
+    padding: 7px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+
+  .pricing-option-check {
+    display: flex;
+    justify-content: center;
+  }
+
+  .pricing-option-check input {
+    width: 18px;
+    height: 18px;
+    accent-color: #6d28d9;
+  }
+
+  .pricing-option-remove {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    background: #fff;
+    color: #dc2626;
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  .pricing-option-add {
+    min-height: 38px;
+    margin-top: 10px;
+    padding: 0 14px;
+    border: 1px solid #c4b5fd;
+    border-radius: 6px;
+    background: #fff;
+    color: #5b21b6;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .pricing-option-add:hover {
+    background: #f5f3ff;
+  }
+
+  @media (max-width: 760px) {
+    .pricing-options-head {
+      display: none;
+    }
+
+    .pricing-option-row {
+      grid-template-columns: minmax(0, 1fr) 110px 42px;
+    }
+
+    .pricing-option-check {
+      justify-content: flex-start;
+    }
+
+    .pricing-option-check::before {
+      margin-right: 5px;
+      color: #64748b;
+      font-size: 11px;
+    }
+
+    .pricing-option-check.active::before { content: "Active"; }
+    .pricing-option-check.default::before { content: "Default"; }
+  }
+</style>
+
+<script>
+  (() => {
+    const root = document.currentScript.previousElementSibling.previousElementSibling;
+    if (!root || !root.classList.contains("pricing-options-editor")) return;
+
+    const hidden = root.querySelector('input[type="hidden"]');
+    const rows = root.querySelector(".pricing-options-rows");
+    const addButton = root.querySelector(".pricing-option-add");
+    const priceKey = root.dataset.priceKey;
+    let options = [];
+
+    try {
+      options = JSON.parse(hidden.value || "[]");
+      if (!Array.isArray(options)) options = [];
+    } catch (_) {
+      options = [];
+    }
+
+    const sync = () => {
+      hidden.value = JSON.stringify(options.map(option => ({
+        name: String(option.name || "").trim(),
+        [priceKey]: Math.max(0, Number(option[priceKey]) || 0),
+        enabled: option.enabled !== false,
+        isDefault: Boolean(option.isDefault) && option.enabled !== false,
+      })));
+    };
+
+    const render = () => {
+      rows.replaceChildren();
+      options.forEach((option, index) => {
+        const row = document.createElement("div");
+        row.className = "pricing-option-row";
+
+        const name = document.createElement("input");
+        name.type = "text";
+        name.value = option.name || "";
+        name.placeholder = "Option name shown to customer";
+        name.setAttribute("aria-label", "Customer option name");
+        name.addEventListener("input", () => { option.name = name.value; sync(); });
+
+        const price = document.createElement("input");
+        price.type = "number";
+        price.min = "0";
+        price.step = "0.01";
+        price.value = String(Number(option[priceKey]) || 0);
+        price.setAttribute("aria-label", "Option price");
+        price.addEventListener("input", () => { option[priceKey] = Number(price.value) || 0; sync(); });
+
+        const activeLabel = document.createElement("label");
+        activeLabel.className = "pricing-option-check active";
+        const active = document.createElement("input");
+        active.type = "checkbox";
+        active.checked = option.enabled !== false;
+        active.setAttribute("aria-label", "Option is active");
+        active.addEventListener("change", () => {
+          option.enabled = active.checked;
+          if (!active.checked) option.isDefault = false;
+          render();
+        });
+        activeLabel.append(active);
+
+        const defaultLabel = document.createElement("label");
+        defaultLabel.className = "pricing-option-check default";
+        const defaultChoice = document.createElement("input");
+        defaultChoice.type = "radio";
+        defaultChoice.name = `${hidden.id}_default`;
+        defaultChoice.checked = Boolean(option.isDefault) && option.enabled !== false;
+        defaultChoice.disabled = option.enabled === false;
+        defaultChoice.setAttribute("aria-label", "Use as default option");
+        defaultChoice.addEventListener("change", () => {
+          options.forEach((candidate, candidateIndex) => { candidate.isDefault = candidateIndex === index; });
+          render();
+        });
+        defaultLabel.append(defaultChoice);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "pricing-option-remove";
+        remove.textContent = "x";
+        remove.title = "Remove option";
+        remove.setAttribute("aria-label", "Remove option");
+        remove.addEventListener("click", () => {
+          options.splice(index, 1);
+          render();
+        });
+
+        row.append(name, price, activeLabel, defaultLabel, remove);
+        rows.append(row);
+      });
+      sync();
+    };
+
+    addButton.addEventListener("click", () => {
+      options.push({ name: "", [priceKey]: 0, enabled: true, isDefault: options.length === 0 });
+      render();
+      rows.lastElementChild?.querySelector('input[type="text"]')?.focus();
+    });
+
+    render();
+  })();
+</script>

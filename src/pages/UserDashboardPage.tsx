@@ -46,6 +46,8 @@ import {
   Star
 } from "lucide-react";
 import { toast } from "sonner@2.0.3";
+import { API_BASE } from "../lib/apiBase";
+import { projectId, publicAnonKey } from "../utils/supabase/info";
 
 export function UserDashboardPage() {
   const navigate = useNavigate();
@@ -62,6 +64,7 @@ export function UserDashboardPage() {
   const [editingAddressIndex, setEditingAddressIndex] = useState<number | null>(null);
   const [orderFilter, setOrderFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [trackingOrder, setTrackingOrder] = useState<string | null>(null);
   
   // Update active tab when URL parameter changes
   useEffect(() => {
@@ -224,6 +227,60 @@ export function UserDashboardPage() {
 
   const handleCancelOrder = (orderNumber: string) => {
     toast.success(`Order ${orderNumber} has been cancelled`);
+  };
+
+  const openFirstUrlFromObject = (obj: any): string | null => {
+    if (!obj || typeof obj !== "object") return null;
+    const keys = ["tracking_url", "url", "shipment_track_activities"]; 
+    for (const key of keys) {
+      const val = obj[key];
+      if (typeof val === "string" && /^https?:\/\//i.test(val)) return val;
+      if (typeof val === "object") {
+        const nested = openFirstUrlFromObject(val);
+        if (nested) return nested;
+      }
+    }
+    for (const val of Object.values(obj)) {
+      if (typeof val === "string" && /^https?:\/\//i.test(val)) return val;
+      if (typeof val === "object") {
+        const nested = openFirstUrlFromObject(val);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  };
+
+  const handleTrackOrder = async (order: any) => {
+    if (!order.trackingNumber) {
+      toast.error("Tracking number is not available yet");
+      return;
+    }
+
+    try {
+      setTrackingOrder(order.orderNumber);
+      const response = await fetch(
+        `${API_BASE}/api/payments/shiprocket/track/${encodeURIComponent(order.trackingNumber)}/`,
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Could not fetch live tracking");
+      }
+
+      const url = openFirstUrlFromObject(data);
+      if (url) {
+        window.open(url, "_blank");
+      } else {
+        toast.success("Tracking refreshed successfully");
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to fetch tracking details");
+    } finally {
+      setTrackingOrder(null);
+    }
   };
 
   const handleLogout = () => {
@@ -719,12 +776,24 @@ export function UserDashboardPage() {
                           </AlertDialog>
                         )}
                         {order.status === "shipped" && (
-                          <Button variant="outline" size="sm" className="bg-purple-50 border-purple-200">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-purple-50 border-purple-200"
+                            onClick={() => handleTrackOrder(order)}
+                            disabled={trackingOrder === order.orderNumber}
+                          >
                             <Truck className="w-4 h-4 mr-2" />
-                            Track Order
+                            {trackingOrder === order.orderNumber ? "Tracking..." : "Track Order"}
                           </Button>
                         )}
                       </div>
+
+                      {order.trackingNumber && (
+                        <div className="mt-3 text-xs text-gray-600">
+                          Tracking Number: <span className="text-gray-900">{order.trackingNumber}</span>
+                        </div>
+                      )}
 
                       {order.estimatedDelivery && order.status !== "delivered" && order.status !== "cancelled" && (
                         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">

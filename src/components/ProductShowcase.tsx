@@ -2,35 +2,12 @@ import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { Button } from "./ui/button";
 import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const products = [
-  {
-    title: "Business Cards",
-    description: "Premium quality professional cards",
-    image: "https://images.unsplash.com/photo-1667201698408-0c06e55b3da7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMGNhcmRzJTIwZGVzaWdufGVufDF8fHx8MTc2MDc4NTY5NXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    slug: "visiting-cards/business-cards",
-  },
-  {
-    title: "Marketing Materials",
-    description: "Brochures, flyers, and catalogs",
-    image: "https://images.unsplash.com/photo-1695634281463-4788ac6ddfdf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxicm9jaHVyZXMlMjBtYXJrZXRpbmd8ZW58MXx8fHwxNzYwNzg5NjkyfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    slug: "marketing-materials/brochures",
-  },
-  {
-    title: "Banners & Signage",
-    description: "Custom sizes and materials available",
-    image: "https://images.unsplash.com/photo-1759692071978-8bb602bcfe76?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYW5uZXIlMjBwcmludGluZ3xlbnwxfHx8fDE3NjA3ODk2OTJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    slug: "posters/poster-printing",
-  },
-  {
-    title: "Custom Packaging",
-    description: "Make your products shine",
-    image: "https://images.unsplash.com/photo-1720762224315-439072aa22c6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwYWNrYWdpbmclMjBkZXNpZ258ZW58MXx8fHwxNzYwNzczMDY3fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral",
-    slug: "personalised-gifts",
-  },
-];
+import { useAdmin } from "../context/AdminContext";
+import { getAIGeneratedProductImageUrl } from "../lib/aiProductImages";
 
 export function ProductShowcase() {
+  const { pageContent } = useAdmin();
+  const products = pageContent.products.filter(p => p.isActive);
   return (
     <section id="products" className="py-20 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,14 +19,16 @@ export function ProductShowcase() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {products.map((product, index) => (
+          {products.map((product, index) => {
+            const image = product.imageUrl || getAIGeneratedProductImageUrl(product.title, product.slug);
+            return (
             <div
-              key={index}
+              key={product.id || index}
               className="group bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer"
             >
               <div className="relative h-64 overflow-hidden">
                 <ImageWithFallback
-                  src={product.image}
+                  src={image}
                   alt={product.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                 />
@@ -68,7 +47,8 @@ export function ProductShowcase() {
                 </Link>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

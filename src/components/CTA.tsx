@@ -1,8 +1,24 @@
 import { Button } from "./ui/button";
 import { ArrowRight } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { useAdmin } from "../context/AdminContext";
+import { useNavigate } from "react-router-dom";
 
 export function CTA() {
+  const { pageContent } = useAdmin();
+  const cta = pageContent.ctaSection;
+  const navigate = useNavigate();
+
+  const handleNavigate = (link: string) => {
+    if (!link) return;
+    if (link.startsWith("http://") || link.startsWith("https://") || link.startsWith("tel:") || link.startsWith("mailto:")) {
+      window.location.href = link;
+      return;
+    }
+    const cleanPath = link.replace(/^(\/#|#)/, "");
+    navigate(cleanPath || "/");
+  };
+
   return (
     <section className="py-20 bg-gradient-to-br from-blue-600 to-purple-600 text-white relative overflow-hidden">
       <div className="absolute inset-0 opacity-10">
@@ -15,27 +31,27 @@ export function CTA() {
       
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <h2 className="text-3xl lg:text-5xl mb-6">
-          Ready to Bring Your Ideas to Life?
+          {cta.title}
         </h2>
         <p className="text-xl mb-8 text-blue-100">
-          Get started with your custom printing project today. Free quotes and fast turnaround guaranteed.
+          {cta.subtitle}
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button 
             size="lg" 
             className="bg-white text-blue-600 hover:bg-gray-100"
-            onClick={() => window.location.href = '/#/contact'}
+            onClick={() => handleNavigate(cta.primaryLink)}
           >
-            Get Your Free Quote
+            {cta.primaryText}
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
           <Button 
             size="lg" 
             variant="outline" 
             className="border-white text-white hover:bg-white/10"
-            onClick={() => window.location.href = '/#/contact'}
+            onClick={() => handleNavigate(cta.secondaryLink)}
           >
-            Talk to an Expert
+            {cta.secondaryText}
           </Button>
         </div>
       </div>

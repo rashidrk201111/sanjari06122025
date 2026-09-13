@@ -1,0 +1,768 @@
+<div class="hierarchical-pricing-editor" id="editor_{{ widget.attrs.id }}">
+  <input type="hidden" name="{{ widget.name }}" id="{{ widget.attrs.id }}" value="{{ widget.value|default:'[]' }}">
+  <div class="sizes-container"></div>
+  <button type="button" class="add-size-btn">+ Add Paper Size</button>
+</div>
+
+<style>
+  .hierarchical-pricing-editor {
+    width: min(100%, 1050px);
+    padding: 16px;
+    border: 1px solid #dce3ee;
+    border-radius: 8px;
+    background: #f8fafc;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  .size-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .size-header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    border-bottom: 2px solid #f1f5f9;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+
+  .size-header input[type="text"] {
+    font-size: 16px;
+    font-weight: 600;
+    height: 38px;
+    padding: 6px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    flex: 1;
+  }
+
+  .size-header label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+    cursor: pointer;
+  }
+
+  .size-header input[type="checkbox"],
+  .size-header input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #2563eb;
+    margin: 0;
+  }
+
+  .remove-size-btn,
+  .remove-type-btn,
+  .remove-option-btn {
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    background: #fff;
+    color: #dc2626;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .remove-size-btn:hover,
+  .remove-type-btn:hover,
+  .remove-option-btn:hover {
+    background: #fef2f2;
+  }
+
+  .sub-section {
+    padding-left: 16px;
+    border-left: 3px solid #e2e8f0;
+    margin-top: 14px;
+  }
+
+  .sub-section-header {
+    font-size: 13px;
+    font-weight: 700;
+    color: #334155;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .add-sub-btn {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .add-sub-btn:hover {
+    background: #dbeafe;
+  }
+
+  .paper-types-list,
+  .options-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .paper-type-row {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .option-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+  }
+
+  .option-row input[type="text"] {
+    flex: 1;
+    height: 32px;
+    padding: 4px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  .option-row input[type="number"] {
+    width: 100px;
+    height: 32px;
+    padding: 4px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  .option-row label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #475569;
+    cursor: pointer;
+  }
+
+  .type-info-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .type-info-row input[type="text"] {
+    flex: 1;
+    height: 34px;
+    padding: 4px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+  }
+
+  .type-info-row label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #475569;
+    cursor: pointer;
+  }
+
+  .type-info-row input[type="checkbox"],
+  .type-info-row input[type="radio"],
+  .option-row input[type="checkbox"],
+  .option-row input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #2563eb;
+  }
+
+  .prices-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(6, minmax(0, 1fr));
+    gap: 6px 10px;
+    background: #fff;
+    padding: 12px;
+    border: 1px solid #f1f5f9;
+    border-radius: 6px;
+    align-items: center;
+  }
+
+  .grid-header {
+    font-size: 9px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    text-align: center;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .tier-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+  }
+
+  .prices-grid input[type="number"] {
+    height: 30px;
+    padding: 2px 6px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 12px;
+  }
+
+  .add-size-btn {
+    height: 42px;
+    padding: 0 16px;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+
+  .add-size-btn:hover {
+    background: #1d4ed8;
+  }
+</style>
+
+<script>
+  (() => {
+    const root = document.getElementById("editor_{{ widget.attrs.id }}");
+    if (!root) return;
+
+    const hidden = root.querySelector('input[type="hidden"]');
+    const container = root.querySelector(".sizes-container");
+    const addSizeButton = root.querySelector(".add-size-btn");
+    let sizes = [];
+
+    try {
+      sizes = JSON.parse(hidden.value || "[]");
+      if (!Array.isArray(sizes)) sizes = [];
+    } catch (_) {
+      sizes = [];
+    }
+
+    // Standardize structure
+    sizes = sizes.map(size => ({
+      name: String(size.name || "").trim(),
+      enabled: size.enabled !== false,
+      isDefault: Boolean(size.isDefault),
+      paperTypes: Array.isArray(size.paperTypes) ? size.paperTypes.map(type => ({
+        name: String(type.name || "").trim(),
+        enabled: type.enabled !== false,
+        isDefault: Boolean(type.isDefault),
+        prices: {
+          bw_single: Math.max(0, Number(type.prices?.bw_single) || 0),
+          bw_double: Math.max(0, Number(type.prices?.bw_double) || 0),
+          bw_single_100: Math.max(0, Number(type.prices?.bw_single_100) || 0),
+          bw_double_100: Math.max(0, Number(type.prices?.bw_double_100) || 0),
+          bw_single_5000: Math.max(0, Number(type.prices?.bw_single_5000) || 0),
+          bw_double_5000: Math.max(0, Number(type.prices?.bw_double_5000) || 0),
+          color_single: Math.max(0, Number(type.prices?.color_single) || 0),
+          color_double: Math.max(0, Number(type.prices?.color_double) || 0),
+          color_single_100: Math.max(0, Number(type.prices?.color_single_100) || 0),
+          color_double_100: Math.max(0, Number(type.prices?.color_double_100) || 0),
+          color_single_5000: Math.max(0, Number(type.prices?.color_single_5000) || 0),
+          color_double_5000: Math.max(0, Number(type.prices?.color_double_5000) || 0),
+          premium_single: Math.max(0, Number(type.prices?.premium_single) || 0),
+          premium_double: Math.max(0, Number(type.prices?.premium_double) || 0),
+          premium_single_100: Math.max(0, Number(type.prices?.premium_single_100) || 0),
+          premium_double_100: Math.max(0, Number(type.prices?.premium_double_100) || 0),
+          premium_single_5000: Math.max(0, Number(type.prices?.premium_single_5000) || 0),
+          premium_double_5000: Math.max(0, Number(type.prices?.premium_double_5000) || 0),
+        }
+      })) : [],
+      bindingTypes: Array.isArray(size.bindingTypes) ? size.bindingTypes.map(b => ({
+        name: String(b.name || "").trim(),
+        price: Math.max(0, Number(b.price) || 0),
+        enabled: b.enabled !== false,
+        isDefault: Boolean(b.isDefault),
+      })) : [],
+      coverTypes: Array.isArray(size.coverTypes) ? size.coverTypes.map(c => ({
+        name: String(c.name || "").trim(),
+        price: Math.max(0, Number(c.price) || 0),
+        enabled: c.enabled !== false,
+        isDefault: Boolean(c.isDefault),
+      })) : [],
+      laminationTypes: Array.isArray(size.laminationTypes) ? size.laminationTypes.map(l => ({
+        name: String(l.name || "").trim(),
+        price: Math.max(0, Number(l.price) || 0),
+        enabled: l.enabled !== false,
+        isDefault: Boolean(l.isDefault),
+      })) : [],
+    }));
+
+    const sync = () => {
+      hidden.value = JSON.stringify(sizes);
+    };
+
+    const render = () => {
+      container.replaceChildren();
+
+      sizes.forEach((size, sizeIndex) => {
+        const sizeCard = document.createElement("div");
+        sizeCard.className = "size-card";
+
+        // Size Header
+        const header = document.createElement("div");
+        header.className = "size-header";
+
+        const sizeName = document.createElement("input");
+        sizeName.type = "text";
+        sizeName.value = size.name;
+        sizeName.placeholder = "Size Name (e.g. A4)";
+        sizeName.addEventListener("input", () => {
+          size.name = sizeName.value;
+          sync();
+        });
+
+        // Active Checkbox
+        const activeLabel = document.createElement("label");
+        const activeInput = document.createElement("input");
+        activeInput.type = "checkbox";
+        activeInput.checked = size.enabled;
+        activeInput.addEventListener("change", () => {
+          size.enabled = activeInput.checked;
+          if (!size.enabled) size.isDefault = false;
+          render();
+        });
+        activeLabel.append(activeInput, "Active");
+
+        // Default Radio
+        const defaultLabel = document.createElement("label");
+        const defaultInput = document.createElement("input");
+        defaultInput.type = "radio";
+        defaultInput.name = `${hidden.id}_size_default`;
+        defaultInput.checked = size.isDefault;
+        defaultInput.disabled = !size.enabled;
+        defaultInput.addEventListener("change", () => {
+          sizes.forEach((s, idx) => { s.isDefault = idx === sizeIndex; });
+          render();
+        });
+        defaultLabel.append(defaultInput, "Default");
+
+        // Remove Size
+        const removeSize = document.createElement("button");
+        removeSize.type = "button";
+        removeSize.className = "remove-size-btn";
+        removeSize.textContent = "Remove Size";
+        removeSize.addEventListener("click", () => {
+          sizes.splice(sizeIndex, 1);
+          render();
+        });
+
+        header.append(sizeName, activeLabel, defaultLabel, removeSize);
+        sizeCard.append(header);
+
+        // 1. Paper Types Section
+        const typesSection = document.createElement("div");
+        typesSection.className = "sub-section";
+
+        const typesHeader = document.createElement("div");
+        typesHeader.className = "sub-section-header";
+        typesHeader.innerHTML = `<span>Paper Types (GSM) for ${size.name || 'this size'}</span>`;
+
+        const addTypeBtn = document.createElement("button");
+        addTypeBtn.type = "button";
+        addTypeBtn.className = "add-sub-btn";
+        addTypeBtn.textContent = "+ Add Paper Type";
+        addTypeBtn.addEventListener("click", () => {
+          size.paperTypes.push({
+            name: "",
+            enabled: true,
+            isDefault: size.paperTypes.length === 0,
+            prices: {
+              bw_single: 0,
+              bw_double: 0,
+              bw_single_100: 0,
+              bw_double_100: 0,
+              bw_single_5000: 0,
+              bw_double_5000: 0,
+              color_single: 0,
+              color_double: 0,
+              color_single_100: 0,
+              color_double_100: 0,
+              color_single_5000: 0,
+              color_double_5000: 0,
+              premium_single: 0,
+              premium_double: 0,
+              premium_single_100: 0,
+              premium_double_100: 0,
+              premium_single_5000: 0,
+              premium_double_5000: 0,
+            }
+          });
+          render();
+        });
+        typesHeader.append(addTypeBtn);
+        typesSection.append(typesHeader);
+
+        const typesList = document.createElement("div");
+        typesList.className = "paper-types-list";
+
+        size.paperTypes.forEach((type, typeIndex) => {
+          const typeRow = document.createElement("div");
+          typeRow.className = "paper-type-row";
+
+          // Info row
+          const infoRow = document.createElement("div");
+          infoRow.className = "type-info-row";
+
+          const typeName = document.createElement("input");
+          typeName.type = "text";
+          typeName.value = type.name;
+          typeName.placeholder = "Type Name (e.g. 75GSM - Normal Paper)";
+          typeName.addEventListener("input", () => {
+            type.name = typeName.value;
+            sync();
+          });
+
+          // Active checkbox
+          const tActiveLabel = document.createElement("label");
+          const tActiveInput = document.createElement("input");
+          tActiveInput.type = "checkbox";
+          tActiveInput.checked = type.enabled;
+          tActiveInput.addEventListener("change", () => {
+            type.enabled = tActiveInput.checked;
+            if (!type.enabled) type.isDefault = false;
+            render();
+          });
+          tActiveLabel.append(tActiveInput, "Active");
+
+          // Default radio
+          const tDefaultLabel = document.createElement("label");
+          const tDefaultInput = document.createElement("input");
+          tDefaultInput.type = "radio";
+          tDefaultInput.name = `${hidden.id}_size_${sizeIndex}_type_default`;
+          tDefaultInput.checked = type.isDefault;
+          tDefaultInput.disabled = !type.enabled;
+          tDefaultInput.addEventListener("change", () => {
+            size.paperTypes.forEach((t, idx) => { t.isDefault = idx === typeIndex; });
+            render();
+          });
+          tDefaultLabel.append(tDefaultInput, "Default");
+
+          // Remove type
+          const removeType = document.createElement("button");
+          removeType.type = "button";
+          removeType.className = "remove-type-btn";
+          removeType.textContent = "Remove";
+          removeType.addEventListener("click", () => {
+            size.paperTypes.splice(typeIndex, 1);
+            render();
+          });
+
+          infoRow.append(typeName, tActiveLabel, tDefaultLabel, removeType);
+          typeRow.append(infoRow);
+
+          // Prices Grid
+          const pricesGrid = document.createElement("div");
+          pricesGrid.className = "prices-grid";
+
+          const headers = ["Tier", "B/W Single", "B/W Double", "Std Single (Ink)", "Std Double", "Prem Single (D)", "Prem Double"];
+          headers.forEach(h => {
+            const el = document.createElement("div");
+            el.className = "grid-header";
+            el.textContent = h;
+            pricesGrid.append(el);
+          });
+
+          const tiers = [
+            { label: "1-99 Qty", suffix: "" },
+            { label: "100-4999", suffix: "_100" },
+            { label: "5000+", suffix: "_5000" }
+          ];
+
+          tiers.forEach(tier => {
+            const labelEl = document.createElement("div");
+            labelEl.className = "tier-label";
+            labelEl.textContent = tier.label;
+            pricesGrid.append(labelEl);
+
+            const keys = ["bw_single", "bw_double", "color_single", "color_double", "premium_single", "premium_double"];
+            keys.forEach(k => {
+              const fullKey = `${k}${tier.suffix}`;
+              const input = document.createElement("input");
+              input.type = "number";
+              input.min = "0";
+              input.step = "0.01";
+              input.value = String(type.prices[fullKey] !== undefined ? type.prices[fullKey] : 0);
+              input.addEventListener("input", () => {
+                type.prices[fullKey] = Math.max(0, Number(input.value) || 0);
+                sync();
+              });
+              pricesGrid.append(input);
+            });
+          });
+
+          typeRow.append(pricesGrid);
+          typesList.append(typeRow);
+        });
+
+        typesSection.append(typesList);
+        sizeCard.append(typesSection);
+
+        // 2. Binding Options Section
+        const bindingSection = document.createElement("div");
+        bindingSection.className = "sub-section";
+        const bindingHeader = document.createElement("div");
+        bindingHeader.className = "sub-section-header";
+        bindingHeader.innerHTML = `<span>Binding Options for ${size.name || 'this size'}</span>`;
+
+        const addBindingBtn = document.createElement("button");
+        addBindingBtn.type = "button";
+        addBindingBtn.className = "add-sub-btn";
+        addBindingBtn.textContent = "+ Add Binding";
+        addBindingBtn.addEventListener("click", () => {
+          size.bindingTypes = size.bindingTypes || [];
+          size.bindingTypes.push({ name: "", price: 0, enabled: true, isDefault: size.bindingTypes.length === 0 });
+          render();
+        });
+        bindingHeader.append(addBindingBtn);
+        bindingSection.append(bindingHeader);
+
+        const bindingList = document.createElement("div");
+        bindingList.className = "options-list";
+        (size.bindingTypes || []).forEach((b, bIdx) => {
+          const row = document.createElement("div");
+          row.className = "option-row";
+
+          const nameInp = document.createElement("input");
+          nameInp.type = "text";
+          nameInp.value = b.name;
+          nameInp.placeholder = "Binding name (e.g. Spiral Binding)";
+          nameInp.addEventListener("input", () => { b.name = nameInp.value; sync(); });
+
+          const priceInp = document.createElement("input");
+          priceInp.type = "number";
+          priceInp.min = "0";
+          priceInp.step = "0.01";
+          priceInp.value = String(b.price || 0);
+          priceInp.title = "Price per copy";
+          priceInp.addEventListener("input", () => { b.price = Math.max(0, Number(priceInp.value) || 0); sync(); });
+
+          const actLbl = document.createElement("label");
+          const actInp = document.createElement("input");
+          actInp.type = "checkbox";
+          actInp.checked = b.enabled;
+          actInp.addEventListener("change", () => { b.enabled = actInp.checked; if (!b.enabled) b.isDefault = false; render(); });
+          actLbl.append(actInp, "Active");
+
+          const defLbl = document.createElement("label");
+          const defInp = document.createElement("input");
+          defInp.type = "radio";
+          defInp.name = `${hidden.id}_size_${sizeIndex}_binding_default`;
+          defInp.checked = b.isDefault;
+          defInp.disabled = !b.enabled;
+          defInp.addEventListener("change", () => {
+            size.bindingTypes.forEach((item, idx) => { item.isDefault = idx === bIdx; });
+            render();
+          });
+          defLbl.append(defInp, "Default");
+
+          const remBtn = document.createElement("button");
+          remBtn.type = "button";
+          remBtn.className = "remove-option-btn";
+          remBtn.textContent = "Remove";
+          remBtn.addEventListener("click", () => { size.bindingTypes.splice(bIdx, 1); render(); });
+
+          row.append(nameInp, priceInp, actLbl, defLbl, remBtn);
+          bindingList.append(row);
+        });
+        bindingSection.append(bindingList);
+        sizeCard.append(bindingSection);
+
+        // 3. Cover Options Section
+        const coverSection = document.createElement("div");
+        coverSection.className = "sub-section";
+        const coverHeader = document.createElement("div");
+        coverHeader.className = "sub-section-header";
+        coverHeader.innerHTML = `<span>Cover Options for ${size.name || 'this size'}</span>`;
+
+        const addCoverBtn = document.createElement("button");
+        addCoverBtn.type = "button";
+        addCoverBtn.className = "add-sub-btn";
+        addCoverBtn.textContent = "+ Add Cover";
+        addCoverBtn.addEventListener("click", () => {
+          size.coverTypes = size.coverTypes || [];
+          size.coverTypes.push({ name: "", price: 0, enabled: true, isDefault: size.coverTypes.length === 0 });
+          render();
+        });
+        coverHeader.append(addCoverBtn);
+        coverSection.append(coverHeader);
+
+        const coverList = document.createElement("div");
+        coverList.className = "options-list";
+        (size.coverTypes || []).forEach((c, cIdx) => {
+          const row = document.createElement("div");
+          row.className = "option-row";
+
+          const nameInp = document.createElement("input");
+          nameInp.type = "text";
+          nameInp.value = c.name;
+          nameInp.placeholder = "Cover name (e.g. Transparent Front Cover)";
+          nameInp.addEventListener("input", () => { c.name = nameInp.value; sync(); });
+
+          const priceInp = document.createElement("input");
+          priceInp.type = "number";
+          priceInp.min = "0";
+          priceInp.step = "0.01";
+          priceInp.value = String(c.price || 0);
+          priceInp.title = "Price per copy";
+          priceInp.addEventListener("input", () => { c.price = Math.max(0, Number(priceInp.value) || 0); sync(); });
+
+          const actLbl = document.createElement("label");
+          const actInp = document.createElement("input");
+          actInp.type = "checkbox";
+          actInp.checked = c.enabled;
+          actInp.addEventListener("change", () => { c.enabled = actInp.checked; if (!c.enabled) c.isDefault = false; render(); });
+          actLbl.append(actInp, "Active");
+
+          const defLbl = document.createElement("label");
+          const defInp = document.createElement("input");
+          defInp.type = "radio";
+          defInp.name = `${hidden.id}_size_${sizeIndex}_cover_default`;
+          defInp.checked = c.isDefault;
+          defInp.disabled = !c.enabled;
+          defInp.addEventListener("change", () => {
+            size.coverTypes.forEach((item, idx) => { item.isDefault = idx === cIdx; });
+            render();
+          });
+          defLbl.append(defInp, "Default");
+
+          const remBtn = document.createElement("button");
+          remBtn.type = "button";
+          remBtn.className = "remove-option-btn";
+          remBtn.textContent = "Remove";
+          remBtn.addEventListener("click", () => { size.coverTypes.splice(cIdx, 1); render(); });
+
+          row.append(nameInp, priceInp, actLbl, defLbl, remBtn);
+          coverList.append(row);
+        });
+        coverSection.append(coverList);
+        sizeCard.append(coverSection);
+
+        // 4. Lamination Options Section
+        const lamSection = document.createElement("div");
+        lamSection.className = "sub-section";
+        const lamHeader = document.createElement("div");
+        lamHeader.className = "sub-section-header";
+        lamHeader.innerHTML = `<span>Lamination Options for ${size.name || 'this size'} (Without, Matt, Glossy)</span>`;
+
+        const addLamBtn = document.createElement("button");
+        addLamBtn.type = "button";
+        addLamBtn.className = "add-sub-btn";
+        addLamBtn.textContent = "+ Add Lamination";
+        addLamBtn.addEventListener("click", () => {
+          size.laminationTypes = size.laminationTypes || [];
+          size.laminationTypes.push({ name: "", price: 0, enabled: true, isDefault: size.laminationTypes.length === 0 });
+          render();
+        });
+        lamHeader.append(addLamBtn);
+        lamSection.append(lamHeader);
+
+        const lamList = document.createElement("div");
+        lamList.className = "options-list";
+        (size.laminationTypes || []).forEach((l, lIdx) => {
+          const row = document.createElement("div");
+          row.className = "option-row";
+
+          const nameInp = document.createElement("input");
+          nameInp.type = "text";
+          nameInp.value = l.name;
+          nameInp.placeholder = "Lamination name (e.g. Matt Lamination)";
+          nameInp.addEventListener("input", () => { l.name = nameInp.value; sync(); });
+
+          const priceInp = document.createElement("input");
+          priceInp.type = "number";
+          priceInp.min = "0";
+          priceInp.step = "0.01";
+          priceInp.value = String(l.price || 0);
+          priceInp.title = "Price per page/unit";
+          priceInp.addEventListener("input", () => { l.price = Math.max(0, Number(priceInp.value) || 0); sync(); });
+
+          const actLbl = document.createElement("label");
+          const actInp = document.createElement("input");
+          actInp.type = "checkbox";
+          actInp.checked = l.enabled;
+          actInp.addEventListener("change", () => { l.enabled = actInp.checked; if (!l.enabled) l.isDefault = false; render(); });
+          actLbl.append(actInp, "Active");
+
+          const defLbl = document.createElement("label");
+          const defInp = document.createElement("input");
+          defInp.type = "radio";
+          defInp.name = `${hidden.id}_size_${sizeIndex}_lamination_default`;
+          defInp.checked = l.isDefault;
+          defInp.disabled = !l.enabled;
+          defInp.addEventListener("change", () => {
+            size.laminationTypes.forEach((item, idx) => { item.isDefault = idx === lIdx; });
+            render();
+          });
+          defLbl.append(defInp, "Default");
+
+          const remBtn = document.createElement("button");
+          remBtn.type = "button";
+          remBtn.className = "remove-option-btn";
+          remBtn.textContent = "Remove";
+          remBtn.addEventListener("click", () => { size.laminationTypes.splice(lIdx, 1); render(); });
+
+          row.append(nameInp, priceInp, actLbl, defLbl, remBtn);
+          lamList.append(row);
+        });
+        lamSection.append(lamList);
+        sizeCard.append(lamSection);
+
+        container.append(sizeCard);
+      });
+
+      sync();
+    };
+
+    addSizeButton.addEventListener("click", () => {
+      sizes.push({
+        name: "",
+        enabled: true,
+        isDefault: sizes.length === 0,
+        paperTypes: [],
+        bindingTypes: [],
+        coverTypes: [],
+        laminationTypes: [],
+      });
+      render();
+    });
+
+    render();
+  })();
+</script>

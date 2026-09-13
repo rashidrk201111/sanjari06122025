@@ -1,0 +1,35 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="Fast turnaround logistics illustration">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#312e81"/>
+      <stop offset="55%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g opacity="0.2">
+    <circle cx="1260" cy="150" r="220" fill="#ddd6fe"/>
+    <circle cx="220" cy="760" r="220" fill="#bfdbfe"/>
+  </g>
+
+  <g transform="translate(270 130)">
+    <rect x="0" y="470" width="1060" height="120" rx="22" fill="#0f172a" opacity="0.36"/>
+
+    <rect x="160" y="250" width="640" height="220" rx="26" fill="#0f172a"/>
+    <rect x="220" y="294" width="360" height="22" rx="8" fill="#93c5fd"/>
+    <rect x="220" y="334" width="300" height="16" rx="8" fill="#cbd5e1"/>
+    <rect x="220" y="362" width="260" height="16" rx="8" fill="#cbd5e1"/>
+
+    <rect x="780" y="300" width="180" height="170" rx="20" fill="#1d4ed8"/>
+    <circle cx="840" cy="490" r="24" fill="#111827"/>
+    <circle cx="920" cy="490" r="24" fill="#111827"/>
+
+    <circle cx="530" cy="190" r="155" fill="none" stroke="#ffffff" stroke-width="22" opacity="0.94"/>
+    <line x1="530" y1="190" x2="626" y2="144" stroke="#fde68a" stroke-width="16" stroke-linecap="round"/>
+    <line x1="530" y1="190" x2="530" y2="95" stroke="#e9d5ff" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="530" cy="190" r="18" fill="#ffffff"/>
+
+    <rect x="410" y="560" width="260" height="60" rx="12" fill="#22c55e"/>
+    <text x="540" y="598" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="800" fill="#ffffff">24H DELIVERY</text>
+  </g>
+</svg>

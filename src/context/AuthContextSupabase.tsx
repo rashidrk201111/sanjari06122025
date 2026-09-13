@@ -34,6 +34,7 @@ export interface Order {
     landmark?: string;
   };
   paymentMethod: string;
+  guestCheckout?: boolean;
   trackingNumber?: string;
   estimatedDelivery?: string;
 }
@@ -287,11 +288,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Logout user
   const logout = async () => {
+    setUser(null);
+    setSupabaseUser(null);
+    setOrders([]);
+    sessionStorage.removeItem("checkout_mode");
     try {
       await supabase.auth.signOut();
-      setUser(null);
-      setSupabaseUser(null);
-      setOrders([]);
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -328,25 +330,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Add new order
   const addOrder = async (order: Order): Promise<{ success: boolean; error?: string }> => {
-    if (!user) {
-      return { success: false, error: "Not authenticated" };
-    }
-
     try {
+      const payload: any = {
+        order_number: order.orderNumber,
+        items: order.items,
+        total_amount: order.total,
+        status: order.status,
+        shipping_address: order.deliveryAddress,
+        payment_method: order.paymentMethod,
+        payment_status: 'pending',
+      };
+
+      if (order.guestCheckout) {
+        payload.user_id = null;
+      } else if (user) {
+        payload.user_id = user.id;
+      } else {
+        payload.user_id = null;
+      }
+
       const { error } = await supabase
         .from('orders')
-        .insert([
-          {
-            user_id: user.id,
-            order_number: order.orderNumber,
-            items: order.items,
-            total_amount: order.total,
-            status: order.status,
-            shipping_address: order.deliveryAddress,
-            payment_method: order.paymentMethod,
-            payment_status: 'pending',
-          },
-        ]);
+        .insert([payload]);
 
       if (error) {
         return { success: false, error: error.message };

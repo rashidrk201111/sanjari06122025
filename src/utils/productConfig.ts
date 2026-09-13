@@ -82,6 +82,14 @@ export const getProductConfig = (categorySlug: string, subcategorySlug: string):
       colorLabel: "PRINTING COLOR"
     };
   }
+
+  // BLACK BOOK & WHITE BOOK BINDING
+  if (categorySlug === "black-book-white-book-binding") {
+    return {
+      fields: ["pages", "copies", "paperSize", "paperType", "printingColor", "printingSides", "bindingOptions", "coverOption"],
+      colorLabel: "PRINTING COLOR"
+    };
+  }
   
   // CERTIFICATE & CARDS
   if (categorySlug === "certificate-cards") {
@@ -93,7 +101,7 @@ export const getProductConfig = (categorySlug: string, subcategorySlug: string):
     }
     if (subcategorySlug === "certificate-printing") {
       return {
-        fields: ["quantity", "size", "paper", "printingColor", "laminationType"],
+        fields: ["pages", "copies", "paperSize", "paperType", "printingColor", "printingSides", "laminationType"],
         colorLabel: "PRINTED COLOR"
       };
     }
@@ -222,14 +230,6 @@ export const getProductConfig = (categorySlug: string, subcategorySlug: string):
     return {
       fields: ["quantity", "size", "paper", "printingColor"],
       colorLabel: "PRINTED COLOR"
-    };
-  }
-  
-  // DOCUMENT BINDING
-  if (categorySlug === "document-binding") {
-    return {
-      fields: ["pages", "copies", "bindingOptions"],
-      colorLabel: "PRINTING COLOR"
     };
   }
   

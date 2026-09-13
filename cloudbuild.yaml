@@ -1,24 +1,31 @@
 steps:
-  # Build the Docker image
+  # Build the Docker image with fresh build (no cache) and unique build tag
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/sanjari-app', '.']
-    id: build
+    args: ['build', '--no-cache', '-t', 'gcr.io/$PROJECT_ID/sanjari-prints:$BUILD_ID', '-t', 'gcr.io/$PROJECT_ID/sanjari-prints:latest', '.']
+    id: 'build'
 
-  # Push the container image to Container Registry
+  # Push the container image with build id
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/sanjari-app']
+    args: ['push', 'gcr.io/$PROJECT_ID/sanjari-prints:$BUILD_ID']
+    id: 'push-build'
     waitFor: ['build']
 
-  # Deploy container image to Cloud Run
+  # Push latest tag
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/sanjari-prints:latest']
+    id: 'push-latest'
+    waitFor: ['build']
+
+  # Deploy container image to Cloud Run ONLY AFTER the image has been pushed to the registry
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
     - 'run'
     - 'deploy'
-    - 'sanjari-app'
+    - 'sanjari-prints'
     - '--image'
-    - 'gcr.io/$PROJECT_ID/sanjari-app'
+    - 'gcr.io/$PROJECT_ID/sanjari-prints:$BUILD_ID'
     - '--region'
-    - 'us-central1'
+    - '${_REGION}'
     - '--platform'
     - 'managed'
     - '--allow-unauthenticated'
@@ -28,10 +35,37 @@ steps:
     - '1Gi'
     - '--timeout'
     - '300s'
-    - '--set-env-vars'
-    - 'NODE_ENV=production'
-    waitFor: ['build']
+    - '--set-env-vars=^;^NODE_ENV=production;ALLOWED_HOSTS=${_ALLOWED_HOSTS};SECURE_SSL_REDIRECT=${_SECURE_SSL_REDIRECT};SESSION_COOKIE_SECURE=True;CSRF_COOKIE_SECURE=True;CORS_ALLOW_ALL_ORIGINS=False;DJANGO_SECRET_KEY=${_DJANGO_SECRET_KEY};DATABASE_URL=${_DATABASE_URL};SUPABASE_URL=${_SUPABASE_URL};SUPABASE_ANON_KEY=${_SUPABASE_ANON_KEY};SUPABASE_SERVICE_ROLE_KEY=${_SUPABASE_SERVICE_ROLE_KEY};PHONEPE_CLIENT_ID=${_PHONEPE_CLIENT_ID};PHONEPE_CLIENT_SECRET=${_PHONEPE_CLIENT_SECRET};PHONEPE_CLIENT_VERSION=${_PHONEPE_CLIENT_VERSION};PHONEPE_SANDBOX=${_PHONEPE_SANDBOX};SHIPROCKET_ENABLED=${_SHIPROCKET_ENABLED};SHIPROCKET_EMAIL=${_SHIPROCKET_EMAIL};SHIPROCKET_PASSWORD=${_SHIPROCKET_PASSWORD};SHIPROCKET_COMPANY_NAME=${_SHIPROCKET_COMPANY_NAME};SHIPROCKET_PICKUP_LOCATION=${_SHIPROCKET_PICKUP_LOCATION};SHIPROCKET_AUTO_CREATE=${_SHIPROCKET_AUTO_CREATE};CSRF_TRUSTED_ORIGINS=${_CSRF_TRUSTED_ORIGINS};CORS_ALLOWED_ORIGINS=${_CORS_ALLOWED_ORIGINS}'
+    waitFor: ['push-build', 'push-latest']
 
 # Store images in Container Registry
 images:
-  - 'gcr.io/$PROJECT_ID/sanjari-app'
+  - 'gcr.io/$PROJECT_ID/sanjari-prints:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/sanjari-prints:latest'
+
+# Substitution variables - Configure real secrets securely in Cloud Build Trigger settings or Secret Manager
+substitutions:
+  _REGION: 'us-central1'
+  _ALLOWED_HOSTS: '*'
+  _SECURE_SSL_REDIRECT: 'False'
+  _DJANGO_SECRET_KEY: 'replace-with-django-secret-key'
+  _DATABASE_URL: 'postgresql://user:password@aws-1-us-east-1.pooler.supabase.com:6543/postgres'
+  _SUPABASE_URL: 'https://your-project.supabase.co'
+  _SUPABASE_ANON_KEY: 'your-supabase-anon-key'
+  _SUPABASE_SERVICE_ROLE_KEY: 'your-supabase-service-role-key'
+  _PHONEPE_CLIENT_ID: 'your-phonepe-client-id'
+  _PHONEPE_CLIENT_SECRET: 'your-phonepe-client-secret'
+  _PHONEPE_CLIENT_VERSION: '1'
+  _PHONEPE_SANDBOX: 'False'
+  _SHIPROCKET_ENABLED: 'True'
+  _SHIPROCKET_EMAIL: 'your-shiprocket-email'
+  _SHIPROCKET_PASSWORD: 'your-shiprocket-password'
+  _SHIPROCKET_COMPANY_NAME: 'Sanjari Prints'
+  _SHIPROCKET_PICKUP_LOCATION: 'Home'
+  _SHIPROCKET_AUTO_CREATE: 'True'
+  _CSRF_TRUSTED_ORIGINS: 'https://sanjariprint.in,https://www.sanjariprint.in'
+  _CORS_ALLOWED_ORIGINS: 'https://sanjariprint.in,https://www.sanjariprint.in'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: '1200s'

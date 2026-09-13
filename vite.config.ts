@@ -1,7 +1,7 @@
 
   import { defineConfig } from 'vite';
   import react from '@vitejs/plugin-react-swc';
-  import path from 'path';
+  import { fileURLToPath } from 'node:url';
 
   export default defineConfig({
     plugins: [react()],
@@ -48,7 +48,7 @@
         '@radix-ui/react-accordion@1.2.3': '@radix-ui/react-accordion',
         '@jsr/supabase__supabase-js@2.49.8': '@jsr/supabase__supabase-js',
         '@jsr/supabase__supabase-js@2': '@jsr/supabase__supabase-js',
-        '@': path.resolve(__dirname, './src'),
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
       },
     },
     build: {

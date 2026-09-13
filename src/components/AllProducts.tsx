@@ -1,135 +1,8 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card } from "./ui/card";
-
-interface Subcategory {
-  name: string;
-}
-
-interface Category {
-  name: string;
-  slug: string;
-  subcategories: Subcategory[];
-}
-
-const categories: Category[] = [
-  {
-    name: "DOCUMENTS",
-    slug: "documents",
-    subcategories: [
-      { name: "PDF PRINT" },
-      { name: "ANNUAL REPORT PRINTING" },
-      { name: "FITNESS PLAN PRINTING" },
-      { name: "LEGAL DOCUMENT PRINT" },
-      { name: "HOMEWORK WORKSHEET PRINTING" },
-      { name: "SURVEY & QUESTIONNAIRE PRINTING" },
-      { name: "SCRIPT PRINTING" },
-      { name: "CV/RESUME PRINT" },
-      { name: "BILLS/INVOICE PRINTING" },
-    ],
-  },
-  {
-    name: "BOOKS",
-    slug: "books",
-    subcategories: [
-      { name: "PAPERBACK / SOFTCOVER / SOFTBACK BOOKS" },
-      { name: "HARDBOUND / HARDBACK BOOKS" },
-      { name: "E-BOOK PRINTING" },
-      { name: "STUDY MATERIAL/GUIDE PRINTING" },
-      { name: "TRAINING/INSTRUCTION MANUAL PRINTING" },
-      { name: "SCHOOL BOOK PRINTING" },
-      { name: "COMIC BOOK PRINTING" },
-      { name: "FAMILY HISTORY BOOK PRINTING" },
-      { name: "BULK BOOK PRINTING" },
-    ],
-  },
-  {
-    name: "THESIS & DISSERTATION",
-    slug: "thesis-dissertation",
-    subcategories: [
-      { name: "Thesis Print" },
-      { name: "Dissertation Print" },
-      { name: "Final Major Projects" },
-      { name: "Thesis Dissertation Print" },
-    ],
-  },
-  {
-    name: "CERTIFICATE & CARDS",
-    slug: "certificate-cards",
-    subcategories: [
-      { name: "NOTECARDS" },
-      { name: "CERTIFICATE PRINTING" },
-      { name: "FLASH CARD PRINTING" },
-    ],
-  },
-  {
-    name: "MARKETING MATERIALS",
-    slug: "marketing-materials",
-    subcategories: [
-      { name: "BROCHURES" },
-      { name: "TABLE AND TENTCARDS" },
-    ],
-  },
-  {
-    name: "POSTERS",
-    slug: "posters",
-    subcategories: [
-      { name: "POSTER PRINTING" },
-      { name: "FRAMED POSTERS" },
-      { name: "GRAPHICS AND ART PRINTS" },
-    ],
-  },
-  {
-    name: "FLYERS OR LEAFLETS",
-    slug: "flyers-leaflets",
-    subcategories: [
-      { name: "Flyers, Pamphlet or Leaflet - Black and White Printing" },
-    ],
-  },
-  {
-    name: "LETTERHEAD & STATIONERY",
-    slug: "letterhead-stationery",
-    subcategories: [
-      { name: "Letterhead Printing" },
-      { name: "Bill Books" },
-    ],
-  },
-  {
-    name: "VISITING CARDS",
-    slug: "visiting-cards",
-    subcategories: [
-      { name: "Business Cards" },
-    ],
-  },
-  {
-    name: "BUSINESS STATIONERY",
-    slug: "business-stationery",
-    subcategories: [],
-  },
-  {
-    name: "PERSONALISED GIFTS",
-    slug: "personalised-gifts",
-    subcategories: [],
-  },
-  {
-    name: "STICKERS AND LABELS",
-    slug: "stickers-labels",
-    subcategories: [],
-  },
-  {
-    name: "DOCUMENT BINDING",
-    slug: "document-binding",
-    subcategories: [
-      { name: "Corner Staple Binding" },
-      { name: "Staple Binding" },
-      { name: "Center Staple Binding or Saddle Stitch Binding" },
-      { name: "Spiral Binding" },
-      { name: "Wiro Binding" },
-      { name: "Soft Cover Binding" },
-      { name: "Glue / Tape Binding" },
-    ],
-  },
-];
+import { categories } from "../data/categories";
 
 export function AllProducts() {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
@@ -189,12 +62,27 @@ export function AllProducts() {
                   {categories
                     .find((c) => c.slug === expandedCategory)
                     ?.subcategories.map((subcategory, index) => (
-                      <div
+                      <Link
                         key={index}
-                        className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
+                        to={`/product/${subcategory.slug}`}
+                        className="group flex gap-4 p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all cursor-pointer bg-white shadow-sm"
                       >
-                        <h4 className="text-gray-900">{subcategory.name}</h4>
-                      </div>
+                        {subcategory.image && (
+                          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 border border-gray-100">
+                            <img
+                              src={subcategory.image}
+                              alt={subcategory.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                        )}
+                        <div className="flex flex-col justify-center">
+                          <h4 className="text-gray-900 font-semibold group-hover:text-blue-600 transition-colors">{subcategory.name}</h4>
+                          <span className="text-xs text-blue-600 mt-1 font-medium flex items-center gap-1">
+                            Configure &amp; Order &rarr;
+                          </span>
+                        </div>
+                      </Link>
                     ))}
                   {categories.find((c) => c.slug === expandedCategory)
                     ?.subcategories.length === 0 && (

@@ -1,5 +1,6 @@
 import { Briefcase, MapPin, Clock, DollarSign } from "lucide-react";
 import { Button } from "../components/ui/button";
+import { PageHeader } from "../components/PageHeader";
 
 export function CareerPage() {
   const openings = [
@@ -39,15 +40,11 @@ export function CareerPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl lg:text-5xl mb-4 text-center">Join Our Team</h1>
-          <p className="text-xl text-center max-w-3xl mx-auto">
-            Build your career with Sanjari prints and help us deliver excellence
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Join Our Team"
+        subtitle="Build your career with Sanjari prints and help us deliver excellence"
+        breadcrumbs={[{ label: "Careers" }]}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Why Work With Us */}
@@ -103,9 +100,14 @@ export function CareerPage() {
                       </span>
                     </div>
                   </div>
-                  <Button className="bg-blue-600 hover:bg-blue-700 lg:flex-shrink-0">
-                    Apply Now
-                  </Button>
+                  <a
+                    href={`mailto:sanjariprint@gmail.com?subject=${encodeURIComponent(`Application for ${job.title} - Sanjari Prints`)}`}
+                    className="lg:flex-shrink-0"
+                  >
+                    <Button className="bg-blue-600 hover:bg-blue-700 w-full lg:w-auto">
+                      Apply Now
+                    </Button>
+                  </a>
                 </div>
                 <p className="text-gray-600">{job.description}</p>
               </div>
@@ -119,9 +121,11 @@ export function CareerPage() {
           <p className="text-xl mb-6 max-w-2xl mx-auto">
             We're always looking for talented individuals. Send us your resume and we'll keep you in mind for future opportunities.
           </p>
-          <Button className="bg-white text-blue-600 hover:bg-blue-50">
-            Submit Your Resume
-          </Button>
+          <a href="mailto:sanjariprint@gmail.com?subject=Job Application - Sanjari Prints">
+            <Button className="bg-white text-blue-600 hover:bg-blue-50">
+              Submit Your Resume
+            </Button>
+          </a>
         </div>
 
         {/* Our Values */}

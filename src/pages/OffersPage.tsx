@@ -1,17 +1,15 @@
 import { Tag, Gift, Users, Clock } from "lucide-react";
+import { PageHeader } from "../components/PageHeader";
+import { Link } from "react-router-dom";
 
 export function OffersPage() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl lg:text-5xl mb-4 text-center">Special Offers & Deals</h1>
-          <p className="text-xl text-center max-w-3xl mx-auto">
-            Save more on quality printing with our exclusive offers
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Special Offers & Deals"
+        subtitle="Save more on quality printing with our exclusive offers"
+        breadcrumbs={[{ label: "Offers" }]}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Current Offers */}
@@ -41,9 +39,11 @@ export function OffersPage() {
                 <li>• Minimum order value: ₹500</li>
                 <li>• Valid till: December 31, 2025</li>
               </ul>
-              <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                Claim Offer
-              </button>
+              <Link to="/all-products" className="block">
+                <button className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                  Claim Offer
+                </button>
+              </Link>
             </div>
 
             {/* Offer 2 */}
@@ -69,9 +69,11 @@ export function OffersPage() {
                 <li>• 500+ units: 20% OFF</li>
                 <li>• 1000+ units: 30% OFF</li>
               </ul>
-              <button className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition-colors">
-                Start Bulk Order
-              </button>
+              <Link to="/bulk-order" className="block">
+                <button className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                  Start Bulk Order
+                </button>
+              </Link>
             </div>
 
             {/* Offer 3 */}
@@ -97,9 +99,11 @@ export function OffersPage() {
                 <li>• All serviceable pin codes</li>
                 <li>• No code required</li>
               </ul>
-              <button className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors">
-                Shop Now
-              </button>
+              <Link to="/all-products" className="block">
+                <button className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors">
+                  Shop Now
+                </button>
+              </Link>
             </div>
 
             {/* Offer 4 */}
@@ -125,9 +129,11 @@ export function OffersPage() {
                 <li>• Thesis, dissertations, assignments</li>
                 <li>• Valid throughout the year</li>
               </ul>
-              <button className="w-full bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 transition-colors">
-                Verify & Claim
-              </button>
+              <Link to="/all-products" className="block">
+                <button className="w-full bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 transition-colors">
+                  Verify & Claim
+                </button>
+              </Link>
             </div>
           </div>
         </div>

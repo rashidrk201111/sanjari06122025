@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Input } from "./ui/input";
 import { categories } from "../data/categories";
-import { Minus, Plus } from "lucide-react";
+import { MessageCircle, Minus, Phone, Plus } from "lucide-react";
 import { useAdmin } from "../context/AdminContext";
+import type { PricingOption } from "../context/AdminContext";
+import { toast } from "sonner@2.0.3";
 
 interface CalculationResult {
   pages: string;
@@ -17,6 +19,7 @@ interface CalculationResult {
   coverOption: string;
   printingSides: string;
   bindingOptions: string;
+  lamination?: string;
   pricePerPage: number;
   printingCost: number;
   coverCost: number;
@@ -56,6 +59,252 @@ interface SubcategoryConfig {
   isNotecardFormat?: boolean;
   useQuantityButtons?: boolean;
 }
+
+// INR fallback pricing (used when admin pricing rule is missing)
+const INR_PAPER_BASE_RATE: Record<string, number> = {
+  "75GSM NORMAL PAPER": 1.0,
+  "80GSM NORMAL PAPER": 1.2,
+  "75GSM PREMIUM PAPER": 1.4,
+  "85GSM BOND PAPER": 1.6,
+  "80GSM DUO PAPER": 1.8,
+  "100GSM BOND PAPER": 2.2,
+  "100GSM DUO PAPER": 2.5,
+  "120GSM MATTE PAPER": 3.0,
+  "170GSM MATTE PAPER": 3.8,
+  "170GSM GLOSS PAPER": 4.2,
+};
+
+const INR_COLOR_ADDON_PER_PAGE: Record<string, number> = {
+  bw: 0,
+  "color-standard": 2.5,
+  "color-premium": 4.5,
+  color: 4.5,
+};
+
+const INR_SIDES_ADDON_PER_PAGE: Record<string, number> = {
+  single: 0,
+  duplex: 0.6,
+};
+
+const INR_BINDING_COST_PER_COPY: Record<string, number> = {
+  "no-binding": 0,
+  staple: 8,
+  "corner-staple": 10,
+  "center-staple": 12,
+  spiral: 35,
+  wiro: 45,
+  "soft-cover": 55,
+  "hard-binding": 110,
+  "glue-tape": 28,
+  perfect: 65,
+};
+
+const INR_FALLBACK_QUANTITY_DISCOUNTS = [
+  { minQty: 500, discount: 12 },
+  { minQty: 200, discount: 8 },
+  { minQty: 100, discount: 5 },
+  { minQty: 50, discount: 3 },
+];
+
+interface PricingChoice {
+  value: string;
+  label: string;
+}
+
+const FALLBACK_PAPER_SIZES: PricingChoice[] = [
+  { value: "A4", label: "A4" }, { value: "A3", label: "A3" },
+  { value: "A5", label: "A5" }, { value: "B5", label: "B5" },
+  { value: "Letter", label: "Letter" }, { value: "Legal", label: "Legal" },
+];
+const FALLBACK_PAPER_TYPES: PricingChoice[] = [
+  "75GSM NORMAL PAPER", "80GSM NORMAL PAPER", "75GSM PREMIUM PAPER", "85GSM BOND PAPER",
+  "80GSM DUO PAPER", "100GSM BOND PAPER", "100GSM DUO PAPER", "170GSM MATTE PAPER",
+  "120GSM MATTE PAPER", "170GSM GLOSS PAPER",
+].map(value => ({ value, label: value }));
+const FALLBACK_COLORS: PricingChoice[] = [
+  { value: "bw", label: "BLACK & WHITE PRINTING" },
+  { value: "color-standard", label: "SMARTCOLOR STANDARD (LOW COST)" },
+  { value: "color-premium", label: "ULTRACOLOR PRO (HIGH QUALITY)" },
+];
+const CERT_FALLBACK_COLORS: PricingChoice[] = [
+  { value: "bw", label: "BLACK & WHITE PRINTING" },
+  { value: "color-premium", label: "ULTRACOLOR PRO (HIGH QUALITY)" },
+];
+const FALLBACK_SIDES: PricingChoice[] = [
+  { value: "single", label: "SINGLE SIDE PRINTING" },
+  { value: "duplex", label: "DUPLEX PRINTING (BOTH SIDES)" },
+];
+const FALLBACK_BINDINGS: PricingChoice[] = [
+  { value: "no-binding", label: "LOOSE SHEET (NO BINDING)" },
+  { value: "staple", label: "STAPLE BINDING" },
+  { value: "corner-staple", label: "CORNER STAPLE BINDING" },
+  { value: "center-staple", label: "CENTER STAPLE BINDING (SADDLE STITCH)" },
+  { value: "spiral", label: "SPIRAL BINDING" },
+  { value: "wiro", label: "WIRO BINDING" },
+  { value: "soft-cover", label: "SOFT COVER BINDING" },
+  { value: "hard-binding", label: "HARD BINDING WITH LAMINATION" },
+  { value: "glue-tape", label: "GLUE / TAPE BINDING" },
+  { value: "perfect", label: "PERFECT BINDING" },
+];
+const FALLBACK_COVERS: PricingChoice[] = [
+  { value: "no-cover", label: "NO COVER" },
+  { value: "front-cover", label: "FRONT COVER" },
+  { value: "front-back-cover", label: "FRONT & BACK COVER" },
+  { value: "thick-color-cover", label: "THICK COLOR COVER" },
+];
+const FALLBACK_LAMINATIONS: PricingChoice[] = [
+  { value: "without-lamination", label: "WITHOUT LAMINATION" },
+  { value: "matt-lamination", label: "MATT LAMINATION" },
+  { value: "glossy-lamination", label: "GLOSSY LAMINATION" },
+  { value: "soft-touch-lamination", label: "SOFT TOUCH LAMINATION" },
+];
+
+function activePricingOptions(options?: PricingOption[]) {
+  return options?.filter(option => option.enabled !== false && option.name.trim() && !option.name.toLowerCase().includes("eco")) || [];
+}
+
+function pricingChoices(options: PricingOption[] | undefined, fallback: PricingChoice[]) {
+  const active = activePricingOptions(options);
+  return active.length ? active.map(option => ({ value: option.name, label: option.name })) : fallback;
+}
+
+function defaultPricingValue(options: PricingOption[] | undefined, fallback: PricingChoice[]) {
+  const active = activePricingOptions(options);
+  return active.find(option => option.isDefault)?.name || active[0]?.name || fallback[0]?.value || "";
+}
+
+function matchingPricingOption(options: PricingOption[] | undefined, selected: string) {
+  const selectedKey = selected.trim().toLowerCase();
+  const active = activePricingOptions(options);
+  return active.find(option => option.name.trim().toLowerCase() === selectedKey)
+    || active.find(option => option.isDefault)
+    || active[0];
+}
+
+function resolveHierarchicalPrice(
+  pricingRule: any,
+  sizeName: string,
+  paperTypeName: string,
+  colorName: string,
+  sidesName: string,
+  copies: number = 1
+): number | null {
+  if (!pricingRule) return null;
+  const sizeOption = pricingRule.paperSizes?.find(
+    (s: any) => s.name.trim().toLowerCase() === sizeName.trim().toLowerCase()
+  );
+  if (sizeOption && sizeOption.paperTypes?.length) {
+    const typeOption = sizeOption.paperTypes.find(
+      (t: any) => t.name.trim().toLowerCase() === paperTypeName.trim().toLowerCase()
+    );
+    if (typeOption && typeOption.prices) {
+      const colorKey = colorName.trim().toLowerCase();
+      const sidesKey = sidesName.trim().toLowerCase();
+
+      const isBw = colorKey === "bw" || colorKey.includes("black") || colorKey.includes("b&w");
+      const isDouble = sidesKey.includes("both") || sidesKey.includes("double") || sidesKey === "duplex" || sidesKey.includes("back2back");
+      const side = isDouble ? "_double" : "_single";
+
+      let priceKey = `color${side}`;
+      if (isBw) priceKey = `bw${side}`;
+      else if (colorKey.includes("premium") || colorKey.includes("ultra")) priceKey = `premium${side}`;
+
+      let tierSuffix = "";
+      if (copies >= 5000) {
+        tierSuffix = "_5000";
+      } else if (copies >= 100) {
+        tierSuffix = "_100";
+      }
+
+      const tieredPrice = typeOption.prices[`${priceKey}${tierSuffix}`];
+      if (tieredPrice !== undefined && tieredPrice !== null && Number(tieredPrice) > 0) {
+        return Number(tieredPrice);
+      }
+
+      return typeOption.prices[priceKey] ?? typeOption.prices[`color${side}`] ?? 0;
+    }
+  }
+  return null;
+}
+
+const SIZE_MULTIPLIER: Record<string, number> = {
+  "a3": 1.6,
+  "a4": 1.25,
+  "a5": 1,
+  "a6": 0.85,
+  "b5": 1.1,
+  "dl": 0.9,
+  "8x11": 1.15,
+  "16x20": 1.8,
+  "20x30": 1.3,
+  "30x40": 1.5,
+  "40x60": 1.9,
+  "5x5": 0.8,
+  "6x8": 1,
+  "8x10": 1.2,
+  "89x51": 1,
+  "85x55": 1,
+  "90x50": 1,
+  "custom": 1.25,
+};
+
+const PAPER_OPTION_BASE_RATE: Record<string, number> = {
+  "300gsm-coated": 6,
+  "300gsm-matte": 6.5,
+  "250gsm-coated": 5.5,
+  "350gsm-coated": 7,
+  "normal-75gsm": 2,
+  "premium-80gsm": 2.5,
+  "glossy-170gsm": 4.2,
+  "matte-170gsm": 3.8,
+  "300gsm-glossy": 6.2,
+  "170gsm-matte": 3.8,
+  "170gsm-glossy": 4.2,
+};
+
+const LAMINATION_ADDON_PER_UNIT: Record<string, number> = {
+  "no-lamination": 0,
+  "gloss-lamination": 0.8,
+  "matte-lamination": 1,
+  "soft-touch-lamination": 1.5,
+};
+
+const PRINTING_MODE_ADDON_PER_UNIT: Record<string, number> = {
+  "single-bw": 0,
+  "single-color": 1.8,
+  "double-bw": 0.9,
+  "double-color": 3,
+};
+
+const PRODUCT_OPTION_ADDON: Record<string, number> = {
+  "rounded": 0.75,
+  "black": 10,
+  "white": 0,
+  "red": 8,
+  "blue": 8,
+  "green": 8,
+  "yellow": 8,
+  "cushion-covers": 140,
+  "cushion-with-filler": 220,
+  "canvas-print": 90,
+  "photo-print": 40,
+  "art-print": 70,
+  "black-frame": 120,
+  "white-frame": 120,
+  "wooden-frame": 150,
+  "no-frame": 0,
+  "gloss": 10,
+  "matte": 12,
+  "textured": 14,
+  "table-tent": 8,
+  "tent-card": 7,
+  "standee": 20,
+  "50-original-50-duplicate": 50,
+  "100-original": 70,
+  "50-original-50-duplicate-50-triplicate": 85,
+  "with-invoice": 20,
+  "without-invoice": 0,
+};
 
 // Field configurations for each subcategory
 const getSubcategoryConfig = (categorySlug: string, subcategorySlug: string): SubcategoryConfig => {
@@ -111,6 +360,14 @@ const getSubcategoryConfig = (categorySlug: string, subcategorySlug: string): Su
       colorLabel: "PRINTING COLOR"
     };
   }
+
+  // BLACK BOOK & WHITE BOOK BINDING - same order as DOCUMENTS
+  if (categorySlug === "black-book-white-book-binding") {
+    return {
+      fields: ["pages", "copies", "paperSize", "paperType", "printingColor", "printingSides", "bindingOptions", "coverOption"],
+      colorLabel: "PRINTING COLOR"
+    };
+  }
   
   // CERTIFICATE & CARDS - different formats
   if (categorySlug === "certificate-cards") {
@@ -122,18 +379,18 @@ const getSubcategoryConfig = (categorySlug: string, subcategorySlug: string): Su
       };
     }
     
-    // Flash Card and Certificate Printing - standard format without binding and cover
+    // Certificate Printing - standard format with lamination, without binding and cover
+    if (subcategorySlug === "certificate-printing") {
+      return {
+        fields: ["pages", "copies", "paperSize", "paperType", "printingColor", "printingSides", "laminationType"],
+        colorLabel: "PRINTED COLOUR"
+      };
+    }
+
+    // Flash Card and others - standard format without binding and cover
     return {
       fields: ["pages", "copies", "paperSize", "paperType", "printingColor", "printingSides"],
       colorLabel: "PRINTED COLOUR"
-    };
-  }
-  
-  // DOCUMENT BINDING - binding and cover options come before printing color and sides
-  if (categorySlug === "document-binding") {
-    return {
-      fields: ["pages", "copies", "paperSize", "paperType", "bindingOptions", "coverOption", "printingColor", "printingSides"],
-      colorLabel: "PRINTING COLOR"
     };
   }
   
@@ -303,6 +560,7 @@ export function PriceCalculator() {
 
   const selectedCategory = categories.find(cat => cat.slug === mainCategory);
   const config = getSubcategoryConfig(mainCategory, subCategory);
+  const usesPageModel = config.fields.includes("pages") && config.fields.includes("copies");
   
   // Get pricing rule for current selection
   const getPricingRule = () => {
@@ -313,11 +571,156 @@ export function PriceCalculator() {
     
     if (!subcategoryObj) return null;
     
-    return pricingRules.find(rule => 
-      rule.category === mainCategory && 
-      rule.subcategory.toLowerCase() === subcategoryObj.name.toLowerCase()
-    );
+    const candidates = [subcategoryObj.name, subcategoryObj.slug]
+      .map(value => value.trim().toLowerCase().replace(/[\/_-]+/g, " "));
+    return pricingRules.find(rule => {
+      const ruleName = rule.subcategory.trim().toLowerCase().replace(/[\/_-]+/g, " ");
+      return rule.category === mainCategory && candidates.some(candidate =>
+        ruleName === candidate || ruleName.includes(candidate) || candidate.includes(ruleName)
+      );
+    });
   };
+
+  const activePricingRule = getPricingRule();
+  const isBlackWhiteBindingCategory =
+    mainCategory === "black-book-white-book-binding" ||
+    subCategory === "black-book-binding" ||
+    subCategory === "white-book-binding";
+
+  const rawPaperSizeChoices = pricingChoices(activePricingRule?.paperSizes, FALLBACK_PAPER_SIZES);
+  const paperSizeChoices = isBlackWhiteBindingCategory
+    ? (() => {
+        const filtered = rawPaperSizeChoices.filter(c => {
+          const v = (c.value || c.label || "").trim().toUpperCase();
+          return v === "A4" || v === "A5";
+        });
+        return filtered.length > 0 ? filtered : [
+          { value: "A4", label: "A4" },
+          { value: "A5", label: "A5" },
+        ];
+      })()
+    : rawPaperSizeChoices;
+  
+  // Resolve paper types, binding, cover & lamination from selected paper size if hierarchical structure is present
+  const defaultSizeFallback = isBlackWhiteBindingCategory
+    ? [{ value: "A4", label: "A4" }, { value: "A5", label: "A5" }]
+    : FALLBACK_PAPER_SIZES;
+  const selectedSizeName = paperSize || size || defaultPricingValue(activePricingRule?.paperSizes, defaultSizeFallback);
+  const selectedSizeOption = activePricingRule?.paperSizes?.find(s => s.name === selectedSizeName);
+  
+  const paperTypeChoices = selectedSizeOption && selectedSizeOption.paperTypes?.length
+    ? pricingChoices(selectedSizeOption.paperTypes, FALLBACK_PAPER_TYPES)
+    : pricingChoices(activePricingRule?.paperTypes, FALLBACK_PAPER_TYPES);
+
+  const isCertificateCategory =
+    mainCategory === "certificate-cards" ||
+    subCategory === "certificate-printing" ||
+    (subCategory && subCategory.toLowerCase().includes("certificate"));
+
+  const rawColorChoices = pricingChoices(activePricingRule?.colorTypes, isCertificateCategory ? CERT_FALLBACK_COLORS : FALLBACK_COLORS);
+  const colorChoices = isCertificateCategory
+    ? rawColorChoices.filter(c => !c.value.toLowerCase().includes("smart") && !c.label.toLowerCase().includes("smart") && c.value !== "color-standard")
+    : rawColorChoices;
+  const sideChoices = pricingChoices(activePricingRule?.sideTypes, FALLBACK_SIDES);
+
+  const bindingChoices = selectedSizeOption && selectedSizeOption.bindingTypes?.length
+    ? pricingChoices(selectedSizeOption.bindingTypes, FALLBACK_BINDINGS)
+    : pricingChoices(activePricingRule?.bindingTypes, FALLBACK_BINDINGS);
+
+  const coverChoices = selectedSizeOption && selectedSizeOption.coverTypes?.length
+    ? pricingChoices(selectedSizeOption.coverTypes, FALLBACK_COVERS)
+    : pricingChoices(activePricingRule?.coverTypes, FALLBACK_COVERS);
+
+  const laminationChoices = selectedSizeOption && selectedSizeOption.laminationTypes?.length
+    ? pricingChoices(selectedSizeOption.laminationTypes, FALLBACK_LAMINATIONS)
+    : FALLBACK_LAMINATIONS;
+
+  // Initialize values when rule changes
+  useEffect(() => {
+    const initialFallbackSizes = isBlackWhiteBindingCategory
+      ? [{ value: "A4", label: "A4" }, { value: "A5", label: "A5" }]
+      : FALLBACK_PAPER_SIZES;
+    let initialSize = defaultPricingValue(activePricingRule?.paperSizes, initialFallbackSizes);
+    if (isBlackWhiteBindingCategory && initialSize.toUpperCase() !== "A4" && initialSize.toUpperCase() !== "A5") {
+      initialSize = "A4";
+    }
+    const sizeOpt = activePricingRule?.paperSizes?.find(s => s.name === initialSize);
+    const initialType = sizeOpt && sizeOpt.paperTypes?.length
+      ? defaultPricingValue(sizeOpt.paperTypes, FALLBACK_PAPER_TYPES)
+      : defaultPricingValue(activePricingRule?.paperTypes, FALLBACK_PAPER_TYPES);
+    const initialBinding = sizeOpt && sizeOpt.bindingTypes?.length
+      ? defaultPricingValue(sizeOpt.bindingTypes, FALLBACK_BINDINGS)
+      : defaultPricingValue(activePricingRule?.bindingTypes, FALLBACK_BINDINGS);
+    const initialCover = sizeOpt && sizeOpt.coverTypes?.length
+      ? defaultPricingValue(sizeOpt.coverTypes, FALLBACK_COVERS)
+      : defaultPricingValue(activePricingRule?.coverTypes, FALLBACK_COVERS);
+    const initialLamination = sizeOpt && sizeOpt.laminationTypes?.length
+      ? defaultPricingValue(sizeOpt.laminationTypes, FALLBACK_LAMINATIONS)
+      : defaultPricingValue(undefined, FALLBACK_LAMINATIONS);
+
+    const colorFallback = isCertificateCategory ? CERT_FALLBACK_COLORS : FALLBACK_COLORS;
+    let initialColor = defaultPricingValue(activePricingRule?.colorTypes, colorFallback);
+    if (isCertificateCategory && (initialColor.toLowerCase().includes("smart") || initialColor === "color-standard")) {
+      initialColor = colorChoices[0]?.value || "bw";
+    }
+
+    setPaperSize(initialSize);
+    setSize(initialSize);
+    setPaperType(initialType);
+    setPaper(initialType);
+    setPapertype(initialType);
+    
+    setPrintedColour(initialColor);
+    setPrintingSides(defaultPricingValue(activePricingRule?.sideTypes, FALLBACK_SIDES));
+    setBindingOptions(initialBinding);
+    setCoverOption(initialCover);
+    setLaminationType(initialLamination);
+    setResult(null);
+  }, [mainCategory, subCategory, activePricingRule?.id, isBlackWhiteBindingCategory, isCertificateCategory]);
+
+  useEffect(() => {
+    if (isCertificateCategory) {
+      const cur = (printedColour || "").toLowerCase().trim();
+      if (cur.includes("smart") || cur === "color-standard") {
+        setPrintedColour(colorChoices[0]?.value || "bw");
+      }
+    }
+  }, [isCertificateCategory, printedColour, colorChoices]);
+
+  useEffect(() => {
+    if (isBlackWhiteBindingCategory) {
+      const cur = (paperSize || size || "").toUpperCase().trim();
+      if (cur && cur !== "A4" && cur !== "A5") {
+        setPaperSize("A4");
+        setSize("A4");
+      }
+    }
+  }, [isBlackWhiteBindingCategory, paperSize, size]);
+
+  // Dynamically sync paper types, binding, cover & lamination when paper size changes
+  useEffect(() => {
+    if (activePricingRule) {
+      const currentSize = paperSize || size;
+      const sizeOpt = activePricingRule.paperSizes?.find(s => s.name === currentSize);
+      if (sizeOpt) {
+        if (sizeOpt.paperTypes?.length) {
+          const matchingType = defaultPricingValue(sizeOpt.paperTypes, FALLBACK_PAPER_TYPES);
+          setPaperType(matchingType);
+          setPaper(matchingType);
+          setPapertype(matchingType);
+        }
+        if (sizeOpt.bindingTypes?.length) {
+          setBindingOptions(defaultPricingValue(sizeOpt.bindingTypes, FALLBACK_BINDINGS));
+        }
+        if (sizeOpt.coverTypes?.length) {
+          setCoverOption(defaultPricingValue(sizeOpt.coverTypes, FALLBACK_COVERS));
+        }
+        if (sizeOpt.laminationTypes?.length) {
+          setLaminationType(defaultPricingValue(sizeOpt.laminationTypes, FALLBACK_LAMINATIONS));
+        }
+      }
+    }
+  }, [paperSize, size, activePricingRule?.id]);
 
   const incrementPages = () => setPages(prev => prev + 1);
   const decrementPages = () => setPages(prev => prev > 1 ? prev - 1 : 1);
@@ -325,85 +728,298 @@ export function PriceCalculator() {
   const decrementCopies = () => setCopies(prev => prev > 1 ? prev - 1 : 1);
 
   const calculatePrice = () => {
+    if (!mainCategory || !subCategory) {
+      toast.error("Please select category and subcategory first");
+      return;
+    }
+
+    const requiredFieldMessages: Partial<Record<FieldType, string>> = {
+      paperSize: "Please select paper size",
+      paperType: "Please select paper type",
+      printingColor: "Please select printing color",
+      printingSides: "Please select printing sides",
+      printedSide: "Please select printed side",
+      bindingOptions: "Please select binding option",
+      coverOption: "Please select cover option",
+      quantity: "Please select quantity",
+      size: "Please select size",
+      paper: "Please select paper",
+      laminationType: "Please select lamination type",
+      corner: "Please select corner type",
+      mugColor: "Please select mug color",
+      cushionType: "Please select cushion type",
+      papertype: "Please select papertype",
+      printType: "Please select print type",
+      frameType: "Please select frame type",
+      material: "Please select material",
+      displayType: "Please select display type",
+      printing: "Please select printing option",
+      invoiceNumber: "Please select invoice number option",
+      billBookType: "Please select bill book type",
+    };
+
+    const fieldValues: Partial<Record<FieldType, string>> = {
+      paperSize,
+      paperType,
+      printingColor: printedColour,
+      printingSides,
+      printedSide: printingSides,
+      bindingOptions,
+      coverOption,
+      quantity,
+      size,
+      paper,
+      laminationType,
+      corner,
+      mugColor,
+      cushionType,
+      papertype,
+      printType,
+      frameType,
+      material,
+      displayType,
+      printing,
+      invoiceNumber,
+      billBookType,
+    };
+
+    const missingField = config.fields.find((field) => {
+      if (field === "pages" || field === "copies" || field === "quantityButtons") {
+        return false;
+      }
+
+      if (!(field in requiredFieldMessages)) {
+        return false;
+      }
+
+      return !fieldValues[field as FieldType];
+    });
+
+    if (missingField && requiredFieldMessages[missingField]) {
+      toast.error(requiredFieldMessages[missingField] as string);
+      return;
+    }
+
     const pagesNum = pages;
     const copiesNum = copies;
-    const pricingRule = getPricingRule();
-    
-    // Base price calculation in INR
-    let pricePerPage = 0.89; // Default fallback
-    
-    // Use pricing rule if available
+    const pricingRule = activePricingRule;
+    const usesPageModel = config.fields.includes("pages") && config.fields.includes("copies");
+
+    // Always compute charges in INR.
+    let pricePerPage = 1.2;
+
+    if (!usesPageModel) {
+      const units = config.fields.includes("quantity") ? Number(quantity) || 0 : copiesNum;
+      if (units <= 0) {
+        toast.error("Please enter a valid quantity");
+        return;
+      }
+
+      const selectedSize = (size || paperSize || "").toLowerCase();
+      const sizeMultiplier = SIZE_MULTIPLIER[selectedSize] ?? 1;
+
+      const selectedPaper = (paper || papertype || "").toLowerCase();
+      const paperBase = PAPER_OPTION_BASE_RATE[selectedPaper] ?? 3;
+
+      let baseUnitPrice = paperBase;
+      const hierarchicalPrice = resolveHierarchicalPrice(
+        pricingRule,
+        size || paperSize,
+        paper || papertype || paperType,
+        printedColour,
+        printingSides,
+        units
+      );
+
+      if (hierarchicalPrice !== null) {
+        baseUnitPrice = hierarchicalPrice;
+      } else {
+        baseUnitPrice = pricingRule?.basePrice ?? paperBase;
+        const sizeRule = matchingPricingOption(pricingRule?.paperSizes, size || paperSize);
+        const paperRule = matchingPricingOption(pricingRule?.paperTypes, paper || papertype || paperType);
+        const colorRule = matchingPricingOption(pricingRule?.colorTypes, printedColour);
+        const sideRule = matchingPricingOption(pricingRule?.sideTypes, printingSides);
+
+        if (activePricingOptions(pricingRule?.paperSizes).length) baseUnitPrice += sizeRule?.priceModifier ?? 0;
+        else baseUnitPrice *= sizeMultiplier;
+        if (activePricingOptions(pricingRule?.paperTypes).length) baseUnitPrice += paperRule?.priceModifier ?? 0;
+        if (activePricingOptions(pricingRule?.colorTypes).length) baseUnitPrice += colorRule?.priceModifier ?? 0;
+        else if (printedColour) baseUnitPrice += INR_COLOR_ADDON_PER_PAGE[printedColour] ?? 0;
+        if (activePricingOptions(pricingRule?.sideTypes).length) baseUnitPrice += sideRule?.priceModifier ?? 0;
+        else if (printingSides) baseUnitPrice += INR_SIDES_ADDON_PER_PAGE[printingSides] ?? 0;
+      }
+      if (printing) {
+        baseUnitPrice += PRINTING_MODE_ADDON_PER_UNIT[printing] ?? 0;
+      }
+      if (laminationType) {
+        baseUnitPrice += LAMINATION_ADDON_PER_UNIT[laminationType] ?? 0;
+      }
+
+      const bindingRule = matchingPricingOption(pricingRule?.bindingTypes, bindingOptions);
+      const coverRule = matchingPricingOption(pricingRule?.coverTypes, coverOption);
+      const fixedOptionAddons =
+        (PRODUCT_OPTION_ADDON[corner] ?? 0) +
+        (PRODUCT_OPTION_ADDON[mugColor] ?? 0) +
+        (PRODUCT_OPTION_ADDON[cushionType] ?? 0) +
+        (PRODUCT_OPTION_ADDON[printType] ?? 0) +
+        (PRODUCT_OPTION_ADDON[frameType] ?? 0) +
+        (PRODUCT_OPTION_ADDON[material] ?? 0) +
+        (PRODUCT_OPTION_ADDON[displayType] ?? 0) +
+        (PRODUCT_OPTION_ADDON[billBookType] ?? 0) +
+        (PRODUCT_OPTION_ADDON[invoiceNumber] ?? 0) +
+        ((bindingRule?.price ?? 0) * units) +
+        ((coverRule?.price ?? 0) * units);
+
+      let printingCost = units * baseUnitPrice;
+
+      if (pricingRule) {
+        if (pricingRule.quantityDiscounts && pricingRule.quantityDiscounts.length > 0) {
+          const applicableDiscount = pricingRule.quantityDiscounts
+            .filter((qd) => units >= qd.minQty)
+            .sort((a, b) => b.minQty - a.minQty)[0];
+
+          if (applicableDiscount) {
+            printingCost = printingCost * (1 - applicableDiscount.discount / 100);
+          }
+        }
+      } else {
+        const applicableDiscount = INR_FALLBACK_QUANTITY_DISCOUNTS
+          .filter((qd) => units >= qd.minQty)
+          .sort((a, b) => b.minQty - a.minQty)[0];
+
+        if (applicableDiscount) {
+          printingCost = printingCost * (1 - applicableDiscount.discount / 100);
+        }
+      }
+
+      const totalCost = printingCost + fixedOptionAddons;
+
+      setResult({
+        pages: "1",
+        copies: units.toString(),
+        paperType: (paperType || paper || papertype || material || "").toUpperCase(),
+        paperSize: (paperSize || size || "").toUpperCase(),
+        printedColour: printedColour || printing || "-",
+        coverOption: coverOption || "-",
+        printingSides: printingSides || "-",
+        bindingOptions: bindingOptions || "-",
+        pricePerPage: baseUnitPrice,
+        printingCost,
+        coverCost: fixedOptionAddons,
+        totalCost,
+      });
+      return;
+    }
+
     if (pricingRule) {
-      pricePerPage = pricingRule.basePrice;
-      
-      // Apply paper type modifier from pricing rule
-      if (paperType && pricingRule.paperTypes.length > 0) {
-        const paperTypeRule = pricingRule.paperTypes.find(pt => 
-          paperType.toLowerCase().includes(pt.name.toLowerCase())
-        );
-        if (paperTypeRule) {
-          pricePerPage += paperTypeRule.priceModifier;
+      const hierarchicalPrice = resolveHierarchicalPrice(
+        pricingRule,
+        paperSize,
+        paperType,
+        printedColour,
+        printingSides,
+        copiesNum
+      );
+
+      if (hierarchicalPrice !== null) {
+        pricePerPage = hierarchicalPrice;
+      } else {
+        pricePerPage = pricingRule.basePrice;
+        pricePerPage += matchingPricingOption(pricingRule.paperSizes, paperSize)?.priceModifier ?? 0;
+        pricePerPage += matchingPricingOption(pricingRule.paperTypes, paperType)?.priceModifier ?? 0;
+        pricePerPage += activePricingOptions(pricingRule.colorTypes).length
+          ? matchingPricingOption(pricingRule.colorTypes, printedColour)?.priceModifier ?? 0
+          : INR_COLOR_ADDON_PER_PAGE[printedColour || "bw"] ?? 0;
+        pricePerPage += activePricingOptions(pricingRule.sideTypes).length
+          ? matchingPricingOption(pricingRule.sideTypes, printingSides)?.priceModifier ?? 0
+          : INR_SIDES_ADDON_PER_PAGE[printingSides || "single"] ?? 0;
+      }
+    } else {
+      const matchedPaperRate = Object.entries(INR_PAPER_BASE_RATE).find(([paperName]) =>
+        paperType.toUpperCase().includes(paperName)
+      );
+
+      if (matchedPaperRate) {
+        pricePerPage = matchedPaperRate[1];
+      }
+
+      pricePerPage += INR_COLOR_ADDON_PER_PAGE[printedColour || "bw"] ?? 0;
+      pricePerPage += INR_SIDES_ADDON_PER_PAGE[printingSides || "single"] ?? 0;
+    }
+
+    let printingCost = pagesNum * copiesNum * pricePerPage;
+
+    if (pricingRule) {
+      if (pricingRule.quantityDiscounts && pricingRule.quantityDiscounts.length > 0) {
+        const applicableDiscount = pricingRule.quantityDiscounts
+          .filter((qd) => copiesNum >= qd.minQty)
+          .sort((a, b) => b.minQty - a.minQty)[0];
+
+        if (applicableDiscount) {
+          printingCost = printingCost * (1 - applicableDiscount.discount / 100);
         }
       }
     } else {
-      // Fallback to hardcoded logic if no pricing rule exists
-      if (paperType.includes("80GSM") || paperType.includes("85GSM")) pricePerPage = 1.0;
-      else if (paperType.includes("100GSM")) pricePerPage = 1.2;
-      else if (paperType.includes("120GSM")) pricePerPage = 1.4;
-      else if (paperType.includes("170GSM")) pricePerPage = 2.0;
-    }
-    
-    // Adjust based on color
-    if (printedColour === "color") pricePerPage *= 8;
-    
-    // Adjust based on sides
-    if (printingSides === "duplex") pricePerPage *= 1.5;
-    
-    let printingCost = pagesNum * copiesNum * pricePerPage;
-    
-    // Apply quantity discounts from pricing rule
-    if (pricingRule && pricingRule.quantityDiscounts.length > 0) {
-      const totalQuantity = copiesNum;
-      const applicableDiscount = pricingRule.quantityDiscounts
-        .filter(qd => totalQuantity >= qd.minQty)
+      const applicableDiscount = INR_FALLBACK_QUANTITY_DISCOUNTS
+        .filter((qd) => copiesNum >= qd.minQty)
         .sort((a, b) => b.minQty - a.minQty)[0];
-      
+
       if (applicableDiscount) {
         printingCost = printingCost * (1 - applicableDiscount.discount / 100);
       }
     }
-    
-    // Binding cost
+
     let bindingCost = 0;
-    if (bindingOptions && pricingRule?.bindingTypes) {
-      const bindingRule = pricingRule.bindingTypes.find(bt =>
-        bindingOptions.toLowerCase().includes(bt.name.toLowerCase())
-      );
-      if (bindingRule) {
-        bindingCost = bindingRule.price * copiesNum;
+    const selectedSizeOpt = activePricingRule?.paperSizes?.find(s => s.name === (paperSize || size));
+    const activeBindingOpts = selectedSizeOpt?.bindingTypes?.length ? selectedSizeOpt.bindingTypes : activePricingRule?.bindingTypes;
+    if (config.fields.includes("bindingOptions") && bindingOptions) {
+      if (activePricingOptions(activeBindingOpts).length) {
+        bindingCost = (matchingPricingOption(activeBindingOpts, bindingOptions)?.price ?? 0) * copiesNum;
+      } else {
+        bindingCost = (INR_BINDING_COST_PER_COPY[bindingOptions] ?? 0) * copiesNum;
       }
     }
-    
-    // Cover cost (fallback logic)
+
     let coverCost = 0;
-    if (coverOption === "front-cover") coverCost = 10;
-    else if (coverOption === "front-back-cover") coverCost = 20;
-    else if (coverOption === "thick-color-cover") coverCost = 30;
-    
-    const totalCost = printingCost + bindingCost + coverCost;
-    
+    const activeCoverOpts = selectedSizeOpt?.coverTypes?.length ? selectedSizeOpt.coverTypes : activePricingRule?.coverTypes;
+    if (config.fields.includes("coverOption") && coverOption) {
+      if (activePricingOptions(activeCoverOpts).length) {
+        coverCost = (matchingPricingOption(activeCoverOpts, coverOption)?.price ?? 0) * copiesNum;
+      } else if (coverOption === "front-cover") coverCost = 10 * copiesNum;
+      else if (coverOption === "front-back-cover") coverCost = 20 * copiesNum;
+      else if (coverOption === "thick-color-cover") coverCost = 30 * copiesNum;
+    }
+
+    let laminationCost = 0;
+    if (config.fields.includes("laminationType") && laminationType) {
+      const sizeLamOption = matchingPricingOption(selectedSizeOpt?.laminationTypes, laminationType);
+      if (sizeLamOption && sizeLamOption.price !== undefined) {
+        laminationCost = sizeLamOption.price * pagesNum * copiesNum;
+      } else {
+        const lamKey = laminationType.toLowerCase();
+        if (lamKey.includes("matt") || lamKey.includes("gloss")) {
+          laminationCost = 5 * pagesNum * copiesNum;
+        } else if (lamKey.includes("soft")) {
+          laminationCost = 8 * pagesNum * copiesNum;
+        }
+      }
+    }
+
+    const totalCost = printingCost + bindingCost + coverCost + laminationCost;
+
     setResult({
       pages: pages.toString(),
       copies: copies.toString(),
       paperType: paperType || "",
       paperSize: paperSize || "",
       printedColour: printedColour || "",
-      coverOption: coverOption || "",
+      coverOption: config.fields.includes("coverOption") ? (coverOption || "") : "",
       printingSides: printingSides || "",
-      bindingOptions: bindingOptions || "",
+      bindingOptions: config.fields.includes("bindingOptions") ? (bindingOptions || "") : "",
+      lamination: config.fields.includes("laminationType") ? (laminationType || "") : "",
       pricePerPage,
       printingCost,
-      coverCost: coverCost + bindingCost,
+      coverCost: coverCost + bindingCost + laminationCost,
       totalCost,
     });
   };
@@ -411,7 +1027,9 @@ export function PriceCalculator() {
   const getPrintedColourLabel = (value: string) => {
     const labels: { [key: string]: string } = {
       "bw": "BLACK & WHITE PRINTING",
-      "color": "COLOR PRINTING",
+      "color-standard": "SMARTCOLOR STANDARD (LOW COST)",
+      "color-premium": "ULTRACOLOR PRO (HIGH QUALITY)",
+      "color": "ULTRACOLOR PRO (HIGH QUALITY)",
     };
     return labels[value] || value;
   };
@@ -451,6 +1069,35 @@ export function PriceCalculator() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
           <h2 className="text-3xl lg:text-4xl">PRICE CALCULATOR</h2>
+        </div>
+
+        <div className="mb-6 overflow-hidden rounded-2xl border border-purple-100 bg-white shadow-sm">
+          <div className="flex flex-col gap-4 bg-gradient-to-r from-purple-50 via-white to-orange-50 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-purple-700">Need help with pricing?</p>
+              <p className="mt-1 text-sm text-gray-600">
+                Call or WhatsApp us for custom quantity, bulk order, and print option support.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="tel:+919323684301"
+                className="inline-flex items-center gap-2 rounded-full bg-purple-700 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-purple-800"
+              >
+                <Phone className="h-4 w-4" />
+                +91 9323684301
+              </a>
+              <a
+                href="https://wa.me/919323684301"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white px-4 py-2 text-sm font-bold text-purple-700 transition hover:bg-purple-50"
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </a>
+            </div>
+          </div>
         </div>
 
         {/* Main Category Selection - Dark Header */}
@@ -501,12 +1148,12 @@ export function PriceCalculator() {
           <div className="bg-white border border-gray-200 px-8 py-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div>
-                <span className="text-sm text-gray-600">PAGES: </span>
-                <span className="text-sm">{result.pages}</span>
+                <span className="text-sm text-gray-600">{usesPageModel ? "PAGES" : "UNITS"}: </span>
+                <span className="text-sm">{usesPageModel ? result.pages : result.copies}</span>
               </div>
               <div>
-                <span className="text-sm text-gray-600">COPIES: </span>
-                <span className="text-sm">{result.copies}</span>
+                <span className="text-sm text-gray-600">{usesPageModel ? "COPIES" : "PRICE BASIS"}: </span>
+                <span className="text-sm">{usesPageModel ? result.copies : "Per Unit"}</span>
               </div>
               <div>
                 <span className="text-sm text-gray-600">PAPER TYPE: </span>
@@ -523,22 +1170,32 @@ export function PriceCalculator() {
                 <span className="text-sm text-gray-600">PRINTED COLOUR: </span>
                 <span className="text-sm text-orange-500">{getPrintedColourLabel(result.printedColour)}</span>
               </div>
-              <div>
-                <span className="text-sm text-gray-600">COVER OPTION: </span>
-                <span className="text-sm text-orange-500">{getCoverOptionLabel(result.coverOption)}</span>
-              </div>
-              <div className="md:col-span-2">
+              {result.coverOption && (
+                <div>
+                  <span className="text-sm text-gray-600">COVER OPTION: </span>
+                  <span className="text-sm text-orange-500">{getCoverOptionLabel(result.coverOption)}</span>
+                </div>
+              )}
+              {result.lamination && (
+                <div>
+                  <span className="text-sm text-gray-600">LAMINATION: </span>
+                  <span className="text-sm text-orange-500">{result.lamination.replace(/-/g, ' ').toUpperCase()}</span>
+                </div>
+              )}
+              <div className={result.coverOption || result.lamination ? "md:col-span-2" : "md:col-span-3"}>
                 <span className="text-sm text-gray-600">PRINTING SIDES: </span>
                 <span className="text-sm text-orange-500">{getPrintingSidesLabel(result.printingSides)}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-              <div className="md:col-span-2">
-                <span className="text-sm text-gray-600">BINDING OPTIONS: </span>
-                <span className="text-sm text-orange-500">{getBindingOptionsLabel(result.bindingOptions)}</span>
-              </div>
-              <div className="md:col-span-2">
+              {result.bindingOptions && (
+                <div className="md:col-span-2">
+                  <span className="text-sm text-gray-600">BINDING OPTIONS: </span>
+                  <span className="text-sm text-orange-500">{getBindingOptionsLabel(result.bindingOptions)}</span>
+                </div>
+              )}
+              <div className={result.bindingOptions ? "md:col-span-2" : "md:col-span-4"}>
                 <span className="text-sm text-gray-600">PRINTING CHARGE PER PAGE: </span>
                 <span className="text-sm text-orange-500">₹{result.pricePerPage.toFixed(2)}</span>
               </div>
@@ -652,12 +1309,9 @@ export function PriceCalculator() {
                         <SelectValue placeholder="Select paper size" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="A4">A4</SelectItem>
-                        <SelectItem value="A3">A3</SelectItem>
-                        <SelectItem value="A5">A5</SelectItem>
-                        <SelectItem value="B5">B5</SelectItem>
-                        <SelectItem value="Letter">Letter</SelectItem>
-                        <SelectItem value="Legal">Legal</SelectItem>
+                        {paperSizeChoices.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -674,16 +1328,9 @@ export function PriceCalculator() {
                         <SelectValue placeholder="Select paper type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="75GSM NORMAL PAPER">75GSM NORMAL PAPER</SelectItem>
-                        <SelectItem value="80GSM NORMAL PAPER">80GSM NORMAL PAPER</SelectItem>
-                        <SelectItem value="75GSM PREMIUM PAPER">75GSM PREMIUM PAPER</SelectItem>
-                        <SelectItem value="85GSM BOND PAPER">85GSM BOND PAPER</SelectItem>
-                        <SelectItem value="80GSM DUO PAPER">80GSM DUO PAPER</SelectItem>
-                        <SelectItem value="100GSM BOND PAPER">100GSM BOND PAPER</SelectItem>
-                        <SelectItem value="100GSM DUO PAPER">100GSM DUO PAPER</SelectItem>
-                        <SelectItem value="170GSM MATTE PAPER">170GSM MATTE PAPER</SelectItem>
-                        <SelectItem value="120GSM MATTE PAPER">120GSM MATTE PAPER</SelectItem>
-                        <SelectItem value="170GSM GLOSS PAPER">170GSM GLOSS PAPER</SelectItem>
+                        {paperTypeChoices.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -700,8 +1347,9 @@ export function PriceCalculator() {
                         <SelectValue placeholder="Select colour option" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="bw">BLACK & WHITE PRINTING</SelectItem>
-                        <SelectItem value="color">COLOR PRINTING</SelectItem>
+                        {colorChoices.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -718,8 +1366,9 @@ export function PriceCalculator() {
                         <SelectValue placeholder="Select printing sides" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="single">SINGLE SIDE PRINTING</SelectItem>
-                        <SelectItem value="duplex">DUPLEX PRINTING (BOTH SIDES)</SelectItem>
+                        {sideChoices.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -736,16 +1385,9 @@ export function PriceCalculator() {
                         <SelectValue placeholder="Select binding option" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no-binding">LOOSE SHEET (NO BINDING)</SelectItem>
-                        <SelectItem value="staple">STAPLE BINDING</SelectItem>
-                        <SelectItem value="corner-staple">CORNER STAPLE BINDING</SelectItem>
-                        <SelectItem value="center-staple">CENTER STAPLE BINDING (SADDLE STITCH)</SelectItem>
-                        <SelectItem value="spiral">SPIRAL BINDING</SelectItem>
-                        <SelectItem value="wiro">WIRO BINDING</SelectItem>
-                        <SelectItem value="soft-cover">SOFT COVER BINDING</SelectItem>
-                        <SelectItem value="hard-binding">HARD BINDING WITH LAMINATION</SelectItem>
-                        <SelectItem value="glue-tape">GLUE / TAPE BINDING</SelectItem>
-                        <SelectItem value="perfect">PERFECT BINDING</SelectItem>
+                        {bindingChoices.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -762,10 +1404,9 @@ export function PriceCalculator() {
                         <SelectValue placeholder="Select cover option" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no-cover">NO COVER</SelectItem>
-                        <SelectItem value="front-cover">FRONT COVER</SelectItem>
-                        <SelectItem value="front-back-cover">FRONT & BACK COVER</SelectItem>
-                        <SelectItem value="thick-color-cover">THICK COLOR COVER</SelectItem>
+                        {coverChoices.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -840,6 +1481,22 @@ export function PriceCalculator() {
 
               // Size field (different options for different categories)
               if (field === "size") {
+                if (activePricingOptions(activePricingRule?.paperSizes).length) {
+                  return (
+                    <div key="size" className="space-y-2">
+                      <Label className="text-xs text-gray-600">SIZE:</Label>
+                      <Select value={size} onValueChange={setSize}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Select size" /></SelectTrigger>
+                        <SelectContent>
+                          {paperSizeChoices.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                }
+
                 // Flyers - specific size format
                 if (mainCategory === "flyers-leaflets") {
                   return (
@@ -978,6 +1635,22 @@ export function PriceCalculator() {
 
               // Paper field (different options for different categories)
               if (field === "paper") {
+                if (activePricingOptions(activePricingRule?.paperTypes).length) {
+                  return (
+                    <div key="paper" className="space-y-2">
+                      <Label className="text-xs text-gray-600">PAPER:</Label>
+                      <Select value={paper} onValueChange={setPaper}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Select paper" /></SelectTrigger>
+                        <SelectContent>
+                          {paperTypeChoices.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                }
+
                 // Flyers - combines type and weight
                 if (mainCategory === "flyers-leaflets") {
                   return (
@@ -1017,20 +1690,21 @@ export function PriceCalculator() {
                 );
               }
 
-              // Lamination Type field (for Notecards)
+              // Lamination Type field (for Certificates, Notecards, etc.)
               if (field === "laminationType") {
                 return (
                   <div key="laminationType" className="space-y-2">
-                    <Label className="text-xs text-gray-600">LAMINATION TYPE:</Label>
+                    <Label className="text-xs text-gray-600">LAMINATION OPTION:</Label>
                     <Select value={laminationType} onValueChange={setLaminationType}>
                       <SelectTrigger className="h-10">
-                        <SelectValue placeholder="Select lamination type" />
+                        <SelectValue placeholder="Select lamination option" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="no-lamination">NO LAMINATION</SelectItem>
-                        <SelectItem value="gloss-lamination">GLOSS LAMINATION</SelectItem>
-                        <SelectItem value="matte-lamination">MATTE LAMINATION</SelectItem>
-                        <SelectItem value="soft-touch-lamination">SOFT TOUCH LAMINATION</SelectItem>
+                        {laminationChoices.map((choice) => (
+                          <SelectItem key={choice.value} value={choice.value}>
+                            {choice.label.toUpperCase()}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1101,8 +1775,9 @@ export function PriceCalculator() {
                         <SelectValue placeholder="Select printed side" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="single">SINGLE SIDE PRINTING</SelectItem>
-                        <SelectItem value="duplex">DOUBLE SIDE PRINTING</SelectItem>
+                        {sideChoices.map(option => (
+                          <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1151,6 +1826,22 @@ export function PriceCalculator() {
 
               // Papertype (lowercase - for Photo Calender)
               if (field === "papertype") {
+                if (activePricingOptions(activePricingRule?.paperTypes).length) {
+                  return (
+                    <div key="papertype" className="space-y-2">
+                      <Label className="text-xs text-gray-600">PAPERTYPE:</Label>
+                      <Select value={papertype} onValueChange={setPapertype}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Select papertype" /></SelectTrigger>
+                        <SelectContent>
+                          {paperTypeChoices.map(option => (
+                            <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                }
+
                 return (
                   <div key="papertype" className="space-y-2">
                     <Label className="text-xs text-gray-600">PAPERTYPE:</Label>

@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+
+export interface CartFile {
+  name: string;
+  pageCount: number | null;
+  pagesToPrint: number;
+  instruction: string;
+}
 
 export interface CartItem {
   id: string;
@@ -11,6 +18,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   thumbnail?: string;
+  files?: CartFile[];
 }
 
 interface CartContextType {
@@ -21,12 +29,28 @@ interface CartContextType {
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
+  getTotalPages: () => number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sanjari_cart");
+      try {
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error("Failed to parse cart", e);
+        return [];
+      }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sanjari_cart", JSON.stringify(items));
+  }, [items]);
 
   const addToCart = (item: CartItem) => {
     setItems((prevItems) => {
@@ -78,6 +102,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return items.reduce((count, item) => count + item.quantity, 0);
   };
 
+  const getTotalPages = () => {
+    return items.reduce((total, item) => {
+      if (item.files && item.files.length > 0) {
+        return total + item.files.reduce((sum, file) => sum + file.pagesToPrint, 0);
+      }
+      // Fall back to configuration pages if no files
+      const configPages = item.configuration.pages || item.configuration.quantity || 1;
+      return total + configPages;
+    }, 0);
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -88,6 +123,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         clearCart,
         getCartTotal,
         getCartCount,
+        getTotalPages,
       }}
     >
       {children}

@@ -12,7 +12,7 @@ interface UserDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   user?: AdminUser | null;
-  onSave: (user: AdminUser) => void;
+  onSave: (user: AdminUser) => Promise<{ success: boolean; error?: string }>;
 }
 
 export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps) {
@@ -35,7 +35,7 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
     }
   }, [user, open]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim() || !email.trim()) {
       toast.error("Please fill in all required fields");
       return;
@@ -57,9 +57,14 @@ export function UserDialog({ open, onOpenChange, user, onSave }: UserDialogProps
       joinedDate: user?.joinedDate || new Date().toISOString().split('T')[0],
     };
 
-    onSave(updatedUser);
-    toast.success(user ? "User updated!" : "User added!");
-    onOpenChange(false);
+    const result = await onSave(updatedUser);
+    if (result.success) {
+      toast.success(user ? "User updated!" : "User added!");
+      onOpenChange(false);
+      return;
+    }
+
+    toast.error(result.error || (user ? "Failed to update user" : "Failed to add user"));
   };
 
   return (

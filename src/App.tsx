@@ -9,6 +9,7 @@ import { HomePage } from "./pages/HomePage";
 import { AllProductsPage } from "./pages/AllProductsPage";
 import { PriceCalculatorPage } from "./pages/PriceCalculatorPage";
 import { BulkOrderPage } from "./pages/BulkOrderPage";
+import { TrackOrderPage } from "./pages/TrackOrderPage";
 import { ProductDetailPage } from "./pages/ProductDetailPage";
 import { ProductConfigurationPage } from "./pages/ProductConfigurationPage";
 import { CartPage } from "./pages/CartPage";
@@ -40,6 +41,13 @@ import { AdminLoginPage } from "./pages/AdminLoginPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 
 export default function App() {
+  // Redirect server-side /checkout redirects (e.g. from payment gateway) to HashRouter
+  if (typeof window !== "undefined" && window.location.pathname === "/checkout") {
+    const search = window.location.search;
+    window.location.replace(window.location.origin + "/#/checkout" + search);
+    return null;
+  }
+
   return (
     <Router>
       <AuthProvider>
@@ -70,13 +78,16 @@ export default function App() {
               
               {/* Product & Cart Pages */}
               <Route path="/all-products" element={<AllProductsPage />} />
+              <Route path="/products/:categorySlug" element={<AllProductsPage />} />
               <Route path="/product/:productSlug" element={<ProductDetailPage />} />
               <Route path="/products/:categorySlug/:productSlug" element={<ProductDetailPage />} />
               <Route path="/configure/:categorySlug/:subcategorySlug" element={<ProductConfigurationPage />} />
+              <Route path="/order" element={<CheckoutPage />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/price-calculator" element={<PriceCalculatorPage />} />
               <Route path="/bulk-order" element={<BulkOrderPage />} />
+              <Route path="/track-order" element={<TrackOrderPage />} />
             
             {/* Company Pages */}
             <Route path="/about" element={<AboutPage />} />

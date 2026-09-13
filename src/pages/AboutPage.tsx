@@ -1,4 +1,5 @@
 import { useAdmin } from "../context/AdminContext";
+import { PageHeader } from "../components/PageHeader";
 
 export function AboutPage() {
   const { pageContent, siteSettings } = useAdmin();
@@ -6,17 +7,11 @@ export function AboutPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl lg:text-5xl mb-4 text-center">
-            {aboutPage.title || `About ${siteSettings.siteName}`}
-          </h1>
-          <p className="text-xl text-center max-w-3xl mx-auto">
-            {aboutPage.subtitle || "Your trusted partner for premium printing solutions"}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title={aboutPage.title || `About ${siteSettings.siteName}`}
+        subtitle={aboutPage.subtitle || "Your trusted partner for premium printing solutions"}
+        breadcrumbs={[{ label: "About Us" }]}
+      />
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

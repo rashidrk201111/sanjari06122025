@@ -6,8 +6,10 @@ import { Card } from "../components/ui/card";
 import { Mail, ArrowLeft } from "lucide-react";
 import { toast } from "sonner@2.0.3";
 import { Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContextSupabase";
 
 export function ForgotPasswordPage() {
+  const { resetPassword } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [isEmailSent, setIsEmailSent] = useState(false);
@@ -24,12 +26,19 @@ export function ForgotPasswordPage() {
       return;
     }
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsEmailSent(true);
-      toast.success("Password reset link sent to your email!");
+    try {
+      const result = await resetPassword(email);
+      if (result.success) {
+        setIsEmailSent(true);
+        toast.success("Password reset link sent to your email!");
+      } else {
+        toast.error(result.error || "Failed to send reset email");
+      }
+    } catch {
+      toast.error("An error occurred. Please try again.");
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (

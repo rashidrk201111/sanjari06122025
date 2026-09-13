@@ -1,18 +1,15 @@
 import { Link } from "react-router-dom";
 import { categories } from "../data/categories";
+import { PageHeader } from "../components/PageHeader";
 
 export function SitemapPage() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl lg:text-5xl mb-4 text-center">Sitemap</h1>
-          <p className="text-xl text-center max-w-3xl mx-auto">
-            Quick navigation to all pages on our website
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Sitemap"
+        subtitle="Quick navigation to all pages on our website"
+        breadcrumbs={[{ label: "Sitemap" }]}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-12">

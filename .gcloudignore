@@ -47,9 +47,9 @@ Thumbs.db
 .tmp
 
 # Docker
-Dockerfile
+# Dockerfile
 docker-compose*
-.dockerignore
+# .dockerignore
 
 # Git
 .git
@@ -83,6 +83,9 @@ __pycache__/
 # Allow specific files in the root
 !/src
 !/public
+!/backend
+!.env
+!backend/.env
 !app.yaml
 !package.json
 !package-lock.json
@@ -90,3 +93,7 @@ __pycache__/
 !vite.config.ts
 !index.html
 !README.md
+!Dockerfile
+!nginx.conf
+!cloudbuild.yaml
+!.dockerignore

@@ -1,6 +1,17 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "../lib/supabase";
+import { API_BASE } from "../lib/apiBase";
+import { adminJsonHeaders } from "../lib/adminAuthHeaders";
 import { toast } from "sonner@2.0.3";
+import { projectId, publicAnonKey } from "../utils/supabase/info";
+
+import pdfPrintImg from "../assets/popular/pdf-print.png";
+import annualReportImg from "../assets/popular/annual-report.png";
+import paperbackBooksImg from "../assets/popular/paperback-books.png";
+import posterPrintingImg from "../assets/popular/poster-printing.svg";
+import thesisPrintImg from "../assets/popular/thesis-print.png";
+import { categories as fallbackCategories } from "../data/categories";
+import type { Category } from "../data/categories";
 
 interface Admin {
   id: string;
@@ -53,6 +64,16 @@ export interface AdminOrder {
   paymentMethod: string;
   trackingNumber?: string;
   estimatedDelivery?: string;
+  trackingUrl?: string;
+}
+
+export interface AdminAuditLog {
+  id: string;
+  action: string;
+  actorName: string;
+  actorEmail: string;
+  details?: any;
+  createdAt: string;
 }
 
 interface SiteSettings {
@@ -86,6 +107,43 @@ export interface HeroContent {
   backgroundImage?: string;
 }
 
+export interface HeroSlideContent {
+  id: number;
+  badge: string;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  ctaLink: string;
+  secondaryLabel: string;
+  secondaryLink: string;
+  imageUrl: string;
+  tagText: string;
+}
+
+export interface ServicesSectionContent {
+  badge: string;
+  title: string;
+  subtitle: string;
+}
+
+export interface CTASectionContent {
+  title: string;
+  subtitle: string;
+  primaryText: string;
+  primaryLink: string;
+  secondaryText: string;
+  secondaryLink: string;
+}
+
+export interface ContactPageContent {
+  title: string;
+  subtitle: string;
+  formTitle: string;
+  formSubtitle: string;
+  whatsappText: string;
+  businessHours: string;
+}
+
 export interface Feature {
   id: string;
   icon: string;
@@ -117,11 +175,34 @@ export interface Review {
   productReviewed?: string;
 }
 
+export interface Product {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  slug: string;
+  isActive: boolean;
+}
+
+export interface ServiceCard {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  tag: string;
+}
+
 export interface PageContent {
   hero: HeroContent;
+  heroSlides: HeroSlideContent[];
+  servicesSection: ServicesSectionContent;
+  ctaSection: CTASectionContent;
+  contactPage: ContactPageContent;
   faqs: FAQ[];
   features: Feature[];
   testimonials: Testimonial[];
+  products: Product[];
+  serviceCards: ServiceCard[];
   aboutPage: {
     title: string;
     subtitle: string;
@@ -131,19 +212,69 @@ export interface PageContent {
   };
 }
 
+export interface PricingOption {
+  name: string;
+  priceModifier?: number;
+  price?: number;
+  enabled?: boolean;
+  isDefault?: boolean;
+  paperTypes?: {
+    name: string;
+    enabled?: boolean;
+    isDefault?: boolean;
+    prices: {
+      bw_single: number;
+      bw_double: number;
+      color_single: number;
+      color_double: number;
+      premium_single?: number;
+      premium_double?: number;
+      bw_single_100?: number;
+      bw_double_100?: number;
+      bw_single_5000?: number;
+      bw_double_5000?: number;
+      color_single_100?: number;
+      color_double_100?: number;
+      color_single_5000?: number;
+      color_double_5000?: number;
+      premium_single_100?: number;
+      premium_double_100?: number;
+      premium_single_5000?: number;
+      premium_double_5000?: number;
+    };
+  }[];
+  bindingTypes?: {
+    name: string;
+    price: number;
+    enabled?: boolean;
+    isDefault?: boolean;
+  }[];
+  coverTypes?: {
+    name: string;
+    price: number;
+    enabled?: boolean;
+    isDefault?: boolean;
+  }[];
+  laminationTypes?: {
+    name: string;
+    price: number;
+    enabled?: boolean;
+    isDefault?: boolean;
+  }[];
+}
+
 export interface PricingRule {
   id: string;
   category: string;
   subcategory: string;
   basePrice: number;
-  paperTypes: {
-    name: string;
-    priceModifier: number;
-  }[];
-  bindingTypes?: {
-    name: string;
-    price: number;
-  }[];
+  printTypes?: PricingOption[];
+  paperSizes?: PricingOption[];
+  paperTypes: PricingOption[];
+  colorTypes?: PricingOption[];
+  sideTypes?: PricingOption[];
+  bindingTypes?: PricingOption[];
+  coverTypes?: PricingOption[];
   quantityDiscounts: {
     minQty: number;
     discount: number;
@@ -196,6 +327,26 @@ export interface PaymentGateway {
   codEnabled: boolean;
 }
 
+export interface ShiprocketSettings {
+  enabled: boolean;
+  email: string;
+  password: string;
+  webhookSecret?: string;
+  pickupLocation: string;
+  companyName: string;
+  phone: string;
+  address: string;
+  address2?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+  defaultWeight: number;
+  defaultLength: number;
+  defaultBreadth: number;
+  defaultHeight: number;
+}
+
 interface AdminContextType {
   admin: Admin | null;
   isAdminAuthenticated: boolean;
@@ -208,24 +359,39 @@ interface AdminContextType {
   addPricingRule: (rule: PricingRule) => Promise<void>;
   deletePricingRule: (id: string) => Promise<void>;
   users: AdminUser[];
-  addUser: (user: AdminUser) => void;
-  updateUser: (user: AdminUser) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: AdminUser) => Promise<{ success: boolean; error?: string }>;
+  updateUser: (user: AdminUser) => Promise<{ success: boolean; error?: string }>;
+  deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   staff: Staff[];
   addStaff: (staff: Staff & { password?: string }) => Promise<{ success: boolean; error?: string }>;
   updateStaff: (staff: Staff & { password?: string }) => Promise<{ success: boolean; error?: string }>;
   deleteStaff: (id: string) => Promise<{ success: boolean; error?: string }>;
   orders: AdminOrder[];
+  refreshOrders: () => Promise<void>;
   updateOrderStatus: (orderNumber: string, status: string) => Promise<void>;
+  updateOrderShipment: (orderNumber: string, shipment: { status?: string; trackingNumber?: string; estimatedDelivery?: string; trackingUrl?: string }) => Promise<void>;
+  auditLogs: AdminAuditLog[];
+  loadAuditLogs: (limit?: number) => Promise<void>;
+  logAdminAction: (action: string, details?: Record<string, any>) => Promise<void>;
   pageContent: PageContent;
   updateHeroContent: (hero: HeroContent) => Promise<void>;
+  updateHeroSlides: (slides: HeroSlideContent[]) => Promise<void>;
+  updateServicesSection: (services: ServicesSectionContent) => Promise<void>;
+  updateCTASection: (cta: CTASectionContent) => Promise<void>;
+  updateContactPageContent: (contact: ContactPageContent) => Promise<void>;
   updateAboutContent: (about: Partial<PageContent['aboutPage']>) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
+  addProduct: (product: Product) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  replaceProducts: (products: Product[]) => Promise<void>;
+  updateServiceCard: (card: ServiceCard) => Promise<void>;
   addFAQ: (faq: FAQ) => Promise<void>;
   updateFAQ: (faq: FAQ) => Promise<void>;
   deleteFAQ: (id: string) => Promise<void>;
   addFeature: (feature: Feature) => Promise<void>;
   updateFeature: (feature: Feature) => Promise<void>;
   deleteFeature: (id: string) => Promise<void>;
+  replaceFeatures: (features: Feature[]) => Promise<void>;
   addTestimonial: (testimonial: Testimonial) => Promise<void>;
   updateTestimonial: (testimonial: Testimonial) => Promise<void>;
   deleteTestimonial: (id: string) => Promise<void>;
@@ -238,7 +404,10 @@ interface AdminContextType {
   updateSEOSettings: (settings: Partial<SEOSettings>) => Promise<void>;
   paymentGateway: PaymentGateway;
   updatePaymentGateway: (settings: Partial<PaymentGateway>) => Promise<void>;
+  shiprocketSettings: ShiprocketSettings;
+  updateShiprocketSettings: (settings: Partial<ShiprocketSettings>) => Promise<void>;
   loadingData: boolean;
+  catalogCategories: Category[];
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -267,9 +436,94 @@ const defaultPageContent: PageContent = {
     ctaLink: "#/all-products",
     backgroundImage: "",
   },
+  heroSlides: [
+    {
+      id: 1,
+      badge: "🏆 #1 Printing Partner for Businesses",
+      title: "Premium Quality Printing, Delivered to Your Door",
+      subtitle: "From business cards to banners - professional printing with vibrant colours, fast turnaround, and unbeatable prices.",
+      ctaLabel: "Start Your Order",
+      ctaLink: "/#/all-products",
+      secondaryLabel: "View All Products",
+      secondaryLink: "/#/all-products",
+      imageUrl: "",
+      tagText: "✈ Free shipping on orders ₹500+",
+    },
+    {
+      id: 2,
+      badge: "⚡ Lightning-Fast Turnaround",
+      title: "Get Your Prints in as Little as 24 Hours",
+      subtitle: "Rush printing service available for all products. Order by noon and receive your prints tomorrow - guaranteed.",
+      ctaLabel: "Get a Quick Quote",
+      ctaLink: "/#/price-calculator",
+      secondaryLabel: "How It Works",
+      secondaryLink: "/#/how-it-works",
+      imageUrl: "",
+      tagText: "⭐ 4.9★ rated by 10,000+ customers",
+    },
+    {
+      id: 3,
+      badge: "📦 Bulk Order Specialists",
+      title: "Save Up to 40% on Bulk Printing Orders",
+      subtitle: "The more you print, the more you save. Custom quotes for large volumes - perfect for events, retail, and corporate needs.",
+      ctaLabel: "Request Bulk Quote",
+      ctaLink: "/#/bulk-order",
+      secondaryLabel: "See Pricing",
+      secondaryLink: "/#/price-calculator",
+      imageUrl: "",
+      tagText: "🏷 Volume discounts starting at 50 units",
+    },
+    {
+      id: 4,
+      badge: "🤝 Trusted by 10,000+ Businesses",
+      title: "Your Vision, Our Craft - Perfect Every Time",
+      subtitle: "Upload your design or use our free templates. Our quality check team ensures your prints look exactly as you imagined.",
+      ctaLabel: "Get Started Free",
+      ctaLink: "/#/signup",
+      secondaryLabel: "Explore Products",
+      secondaryLink: "/#/all-products",
+      imageUrl: "",
+      tagText: "🚀 500K+ orders delivered successfully",
+    },
+  ],
+  servicesSection: {
+    badge: "Professional Solutions for Every Print Need",
+    title: "Our Printing Services",
+    subtitle: "We offer a comprehensive range of printing solutions to meet all your business needs",
+  },
+  ctaSection: {
+    title: "Ready to Bring Your Ideas to Life?",
+    subtitle: "Get started with your custom printing project today. Free quotes and fast turnaround guaranteed.",
+    primaryText: "Get Your Free Quote",
+    primaryLink: "/#/contact",
+    secondaryText: "Talk to an Expert",
+    secondaryLink: "/#/contact",
+  },
+  contactPage: {
+    title: "Contact Us",
+    subtitle: "We're here to help! Get in touch with us for any queries or support",
+    formTitle: "Send us a Message",
+    formSubtitle: "Share your requirement and our team will contact you shortly.",
+    whatsappText: "Chat with us on WhatsApp",
+    businessHours: "Monday - Saturday\n11:00 AM - 8:00 PM\nClosed on Sundays",
+  },
   faqs: [],
   features: [],
   testimonials: [],
+  products: [
+    { id: "1", title: "PDF Print", description: "Professional PDF printing services", imageUrl: pdfPrintImg, slug: "documents/pdf-print", isActive: true },
+    { id: "2", title: "Annual Report Printing", description: "High-quality annual report printing", imageUrl: annualReportImg, slug: "documents/annual-report-printing", isActive: true },
+    { id: "3", title: "Paperback Books", description: "Professional paperback book printing", imageUrl: paperbackBooksImg, slug: "books/paperback-books", isActive: true },
+    { id: "4", title: "Poster Printing", description: "Vibrant poster prints for events and promotions", imageUrl: posterPrintingImg, slug: "posters/poster-printing", isActive: true },
+    { id: "5", title: "Thesis Print", description: "Professional thesis printing services", imageUrl: thesisPrintImg, slug: "thesis-dissertation/thesis-print", isActive: true },
+  ],
+  serviceCards: [
+    { id: "1", icon: "CreditCard", title: "Business Cards", description: "Make a lasting first impression with premium business cards in various finishes.", tag: "Brand Identity" },
+    { id: "2", icon: "FileText", title: "Brochures & Flyers", description: "Eye-catching marketing materials to promote your business effectively.", tag: "Marketing" },
+    { id: "3", icon: "Image", title: "Banners & Posters", description: "Large format printing for events, promotions, and advertising campaigns.", tag: "Large Format" },
+    { id: "4", icon: "Package", title: "Packaging", description: "Custom packaging solutions that make your products stand out on the shelf.", tag: "Product Packaging" },
+    { id: "5", icon: "Tag", title: "Labels & Stickers", description: "High-quality labels and stickers for products, branding, and promotions.", tag: "Branding" },
+  ],
   aboutPage: {
     title: "About Sanjari Prints",
     subtitle: "Your Trusted Printing Partner Since 2010",
@@ -329,13 +583,33 @@ const defaultPaymentGateway: PaymentGateway = {
     testMode: true,
   },
   phonepe: {
-    enabled: false,
+    enabled: true,
     merchantId: "",
     saltKey: "",
     saltIndex: "1",
-    testMode: true,
+    testMode: false, // PRODUCTION MODE
   },
   codEnabled: true,
+};
+
+const defaultShiprocketSettings: ShiprocketSettings = {
+  enabled: false,
+  email: "",
+  password: "",
+  webhookSecret: "",
+  pickupLocation: "Primary",
+  companyName: "Sanjari Prints",
+  phone: "+91",
+  address: "",
+  address2: "",
+  city: "Mumbai",
+  state: "Maharashtra",
+  pincode: "",
+  country: "India",
+  defaultWeight: 0.5,
+  defaultLength: 25,
+  defaultBreadth: 20,
+  defaultHeight: 4,
 };
 
 export function AdminProvider({ children }: { children: ReactNode }) {
@@ -349,12 +623,78 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [pageContent, setPageContent] = useState<PageContent>(defaultPageContent);
   const [seoSettings, setSEOSettings] = useState<SEOSettings>(defaultSEOSettings);
   const [paymentGateway, setPaymentGateway] = useState<PaymentGateway>(defaultPaymentGateway);
+  const [shiprocketSettings, setShiprocketSettings] = useState<ShiprocketSettings>(defaultShiprocketSettings);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [catalogCategories, setCatalogCategories] = useState<Category[]>(fallbackCategories);
 
   // Load all data from Supabase on mount
   useEffect(() => {
     loadAllData();
+  }, []);
+
+  // Real-time PostgreSQL subscription for orders and pricing rules
+  useEffect(() => {
+    // Realtime channel for orders table changes
+    const ordersChannel = supabase
+      .channel('realtime-orders-admin')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        (payload) => {
+          console.log('Realtime order update received:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newOrder = payload.new;
+            toast.success(`New order #${newOrder.order_number || ''} placed!`, {
+              description: `Amount: ₹${newOrder.total_amount || 0}`,
+              duration: 5000,
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            const oldOrder = payload.old;
+            const newOrder = payload.new;
+            if (oldOrder && oldOrder.status !== newOrder.status) {
+              toast.info(`Order #${newOrder.order_number || ''} status changed to ${newOrder.status || ''}`);
+            }
+          }
+          
+          // Refresh orders list
+          loadOrders();
+        }
+      )
+      .subscribe();
+
+    // Realtime channel for pricing rules table changes
+    const pricingChannel = supabase
+      .channel('realtime-pricing-admin')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pricing_rules' },
+        (payload) => {
+          console.log('Realtime pricing rule update received:', payload);
+          toast.success("Pricing rules updated in real-time!");
+          
+          // Refresh pricing rules list
+          loadPricingRules();
+        }
+      )
+      .subscribe();
+
+    const productsChannel = supabase
+      .channel('realtime-products-catalog')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => loadCatalogProducts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(pricingChannel);
+      supabase.removeChannel(productsChannel);
+    };
   }, []);
 
   const loadAllData = async () => {
@@ -385,6 +725,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       // Load pricing rules
       await loadPricingRules();
 
+      // Load the customer-facing product catalogue
+      await loadCatalogProducts();
+
       // Load users
       await loadUsers();
 
@@ -393,6 +736,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
       // Load orders
       await loadOrders();
+
+      // Load audit logs
+      await loadAuditLogs(50);
 
       // Load FAQs
       await loadFAQs();
@@ -405,6 +751,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
       // Load payment gateway settings
       await loadPaymentSettings();
+
+      // Load shiprocket settings
+      await loadShiprocketSettings();
 
       // Load site settings and page content from content_pages
       await loadContentPages();
@@ -437,6 +786,59 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loadCatalogProducts = async () => {
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, category, subcategory, name, description, base_price, image_url, specifications')
+      .order('category')
+      .order('subcategory');
+
+    if (error || !Array.isArray(data)) {
+      if (error) console.warn("Could not load dynamic product catalogue:", error.message);
+      setCatalogCategories(fallbackCategories);
+      return;
+    }
+
+    const merged: Category[] = fallbackCategories.map(category => ({
+      ...category,
+      subcategories: category.subcategories.map(subcategory => ({ ...subcategory })),
+    }));
+    const slugify = (value: string) => value
+      .trim()
+      .toLowerCase()
+      .replace(/&/g, 'and')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    data.forEach((row: any) => {
+      const categorySlug = slugify(row.category || 'custom');
+      const productName = String(row.subcategory || row.name || '').trim();
+      if (!productName) return;
+      const productSlug = String(row.specifications?.slug || slugify(productName));
+      let category = merged.find(item => item.slug === categorySlug);
+      if (!category) {
+        category = {
+          name: String(row.specifications?.categoryName || row.category || 'Custom Products').replace(/-/g, ' ').toUpperCase(),
+          slug: categorySlug,
+          subcategories: [],
+        };
+        merged.push(category);
+      }
+      const existing = category.subcategories.find(item => item.slug === productSlug || item.name.toLowerCase() === productName.toLowerCase());
+      const product = {
+        name: String(row.name || productName),
+        slug: productSlug,
+        image: row.image_url || existing?.image,
+        description: row.description || existing?.description,
+        startingPrice: Number(row.base_price || existing?.startingPrice || 0),
+      };
+      if (existing) Object.assign(existing, product);
+      else category.subcategories.push(product);
+    });
+
+    setCatalogCategories(merged.filter(category => category.subcategories.length > 0));
+  };
+
   const loadUsers = async () => {
     const { data, error } = await supabase
       .from('users')
@@ -454,7 +856,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        isActive: true,
+        isActive: user.email_verified !== false,
         joinedDate: user.created_at?.split('T')[0] || '',
       }));
       setUsers(formattedUsers);
@@ -511,10 +913,75 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         total: order.total_amount,
         deliveryAddress: order.shipping_address || {},
         paymentMethod: order.payment_method,
-        trackingNumber: '',
-        estimatedDelivery: '',
+        trackingNumber: order.tracking_number || '',
+        estimatedDelivery: order.estimated_delivery || '',
+        trackingUrl: order.tracking_url || '',
       }));
       setOrders(formattedOrders);
+    }
+  };
+
+  const refreshOrders = async () => {
+    await loadOrders();
+  };
+
+  const loadAuditLogs = async (limit = 100) => {
+    const { data, error } = await supabase
+      .from('admin_audit_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.warn("Admin audit log table unavailable or failed to load:", error.message);
+      return;
+    }
+
+    if (Array.isArray(data)) {
+      const formatted = data.map((row: any) => ({
+        id: String(row.id),
+        action: row.action || "unknown_action",
+        actorName: row.admin_name || "Admin",
+        actorEmail: row.admin_email || "",
+        details: row.details || null,
+        createdAt: row.created_at || new Date().toISOString(),
+      }));
+      setAuditLogs(formatted);
+    }
+  };
+
+  const logAdminAction = async (action: string, details?: Record<string, any>) => {
+    if (!admin) return;
+
+    const payload = {
+      admin_id: admin.id,
+      admin_email: admin.email,
+      admin_name: admin.name,
+      action,
+      details: details || {},
+    };
+
+    const { data, error } = await supabase
+      .from('admin_audit_logs')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.warn("Failed to write admin audit log:", error.message);
+      return;
+    }
+
+    if (data) {
+      const entry: AdminAuditLog = {
+        id: String(data.id),
+        action: data.action || action,
+        actorName: data.admin_name || admin.name,
+        actorEmail: data.admin_email || admin.email,
+        details: data.details || details || null,
+        createdAt: data.created_at || new Date().toISOString(),
+      };
+      setAuditLogs(prev => [entry, ...prev].slice(0, 200));
     }
   };
 
@@ -621,6 +1088,28 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loadShiprocketSettings = async () => {
+    const { data, error } = await supabase
+      .from('content_pages')
+      .select('*')
+      .eq('page_type', 'shiprocket_settings')
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error("Error loading shiprocket settings:", error);
+      return;
+    }
+
+    if (data?.content) {
+      try {
+        const parsed = JSON.parse(data.content);
+        setShiprocketSettings(prev => ({ ...prev, ...parsed }));
+      } catch (e) {
+        console.error("Error parsing shiprocket settings:", e);
+      }
+    }
+  };
+
   const loadContentPages = async () => {
     const { data, error } = await supabase
       .from('content_pages')
@@ -638,12 +1127,24 @@ export function AdminProvider({ children }: { children: ReactNode }) {
           
           if (page.page_type === 'hero') {
             setPageContent(prev => ({ ...prev, hero: content }));
+          } else if (page.page_type === 'hero_slides') {
+            setPageContent(prev => ({ ...prev, heroSlides: content }));
+          } else if (page.page_type === 'services') {
+            setPageContent(prev => ({ ...prev, servicesSection: content }));
+          } else if (page.page_type === 'cta') {
+            setPageContent(prev => ({ ...prev, ctaSection: content }));
+          } else if (page.page_type === 'contact_page') {
+            setPageContent(prev => ({ ...prev, contactPage: content }));
           } else if (page.page_type === 'features') {
             setPageContent(prev => ({ ...prev, features: content }));
           } else if (page.page_type === 'testimonials') {
             setPageContent(prev => ({ ...prev, testimonials: content }));
           } else if (page.page_type === 'about') {
             setPageContent(prev => ({ ...prev, aboutPage: content }));
+          } else if (page.page_type === 'products') {
+            setPageContent(prev => ({ ...prev, products: content }));
+          } else if (page.page_type === 'service_cards') {
+            setPageContent(prev => ({ ...prev, serviceCards: content }));
           } else if (page.page_type === 'site_settings') {
             setSiteSettings(content);
           }
@@ -825,6 +1326,41 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     toast.success("Order status updated!");
   };
 
+  const updateOrderShipment = async (
+    orderNumber: string,
+    shipment: { status?: string; trackingNumber?: string; estimatedDelivery?: string; trackingUrl?: string }
+  ) => {
+    const updatePayload: any = {};
+    if (shipment.status) updatePayload.status = shipment.status;
+    if (shipment.trackingNumber !== undefined) updatePayload.tracking_number = shipment.trackingNumber;
+    if (shipment.estimatedDelivery !== undefined) updatePayload.estimated_delivery = shipment.estimatedDelivery;
+    if (shipment.trackingUrl !== undefined) updatePayload.tracking_url = shipment.trackingUrl;
+
+    const { error } = await supabase
+      .from('orders')
+      .update(updatePayload)
+      .eq('order_number', orderNumber);
+
+    if (error) {
+      console.error("Error updating shipment details:", error);
+      toast.error("Failed to update shipment details");
+      return;
+    }
+
+    setOrders(prev => prev.map(order => {
+      if (order.orderNumber !== orderNumber) return order;
+      return {
+        ...order,
+        status: (shipment.status as AdminOrder["status"]) || order.status,
+        trackingNumber: shipment.trackingNumber ?? order.trackingNumber,
+        estimatedDelivery: shipment.estimatedDelivery ?? order.estimatedDelivery,
+        trackingUrl: shipment.trackingUrl ?? order.trackingUrl,
+      };
+    }));
+
+    toast.success("Shipment details updated!");
+  };
+
   // Content Management Functions
   const updateHeroContent = async (hero: HeroContent) => {
     const updated = { ...pageContent, hero };
@@ -845,6 +1381,94 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       toast.error("Failed to save hero content");
     } else {
       toast.success("Hero content updated!");
+    }
+  };
+
+  const updateHeroSlides = async (slides: HeroSlideContent[]) => {
+    const updated = { ...pageContent, heroSlides: slides };
+    setPageContent(updated);
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'hero_slides',
+        title: 'Hero Slides',
+        content: JSON.stringify(slides),
+      }, {
+        onConflict: 'page_type'
+      });
+
+    if (error) {
+      console.error("Error saving hero slides:", error);
+      toast.error("Failed to save hero slides");
+    } else {
+      toast.success("Hero slides updated!");
+    }
+  };
+
+  const updateServicesSection = async (services: ServicesSectionContent) => {
+    const updated = { ...pageContent, servicesSection: services };
+    setPageContent(updated);
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'services',
+        title: 'Services Section',
+        content: JSON.stringify(services),
+      }, {
+        onConflict: 'page_type'
+      });
+
+    if (error) {
+      console.error("Error saving services section:", error);
+      toast.error("Failed to save services section");
+    } else {
+      toast.success("Services section updated!");
+    }
+  };
+
+  const updateCTASection = async (cta: CTASectionContent) => {
+    const updated = { ...pageContent, ctaSection: cta };
+    setPageContent(updated);
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'cta',
+        title: 'CTA Section',
+        content: JSON.stringify(cta),
+      }, {
+        onConflict: 'page_type'
+      });
+
+    if (error) {
+      console.error("Error saving CTA section:", error);
+      toast.error("Failed to save CTA section");
+    } else {
+      toast.success("CTA section updated!");
+    }
+  };
+
+  const updateContactPageContent = async (contact: ContactPageContent) => {
+    const updated = { ...pageContent, contactPage: contact };
+    setPageContent(updated);
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'contact_page',
+        title: 'Contact Page',
+        content: JSON.stringify(contact),
+      }, {
+        onConflict: 'page_type'
+      });
+
+    if (error) {
+      console.error("Error saving contact page content:", error);
+      toast.error("Failed to save contact page content");
+    } else {
+      toast.success("Contact page content updated!");
     }
   };
 
@@ -1026,6 +1650,27 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const replaceFeatures = async (features: Feature[]) => {
+    setPageContent(prev => ({ ...prev, features }));
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'features',
+        title: 'Features',
+        content: JSON.stringify(features),
+      }, {
+        onConflict: 'page_type'
+      });
+
+    if (error) {
+      console.error("Error saving features order:", error);
+      toast.error("Failed to reorder features");
+    } else {
+      toast.success("Features order updated!");
+    }
+  };
+
   const addTestimonial = async (testimonial: Testimonial) => {
     const updated = { 
       ...pageContent, 
@@ -1101,17 +1746,179 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // User Management Functions (kept simple as before)
-  const addUser = (user: AdminUser) => {
-    setUsers([...users, user]);
+  // Product Management Functions
+  const updateProduct = async (product: Product) => {
+    const updatedProducts = pageContent.products.map(p => p.id === product.id ? product : p);
+    setPageContent(prev => ({ ...prev, products: updatedProducts }));
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'products',
+        title: 'Products Showcase',
+        content: JSON.stringify(updatedProducts),
+      }, { onConflict: 'page_type' });
+
+    if (error) {
+      console.error("Error saving products:", error);
+      toast.error("Failed to save products");
+    } else {
+      toast.success("Product updated!");
+    }
   };
 
-  const updateUser = (user: AdminUser) => {
-    setUsers(users.map(u => u.id === user.id ? user : u));
+  const addProduct = async (product: Product) => {
+    const updatedProducts = [...pageContent.products, product];
+    setPageContent(prev => ({ ...prev, products: updatedProducts }));
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'products',
+        title: 'Products Showcase',
+        content: JSON.stringify(updatedProducts),
+      }, { onConflict: 'page_type' });
+
+    if (error) {
+      console.error("Error saving products:", error);
+      toast.error("Failed to add product");
+    } else {
+      toast.success("Product added!");
+    }
   };
 
-  const deleteUser = (id: string) => {
-    setUsers(users.filter(u => u.id !== id));
+  const deleteProduct = async (id: string) => {
+    const updatedProducts = pageContent.products.filter(p => p.id !== id);
+    setPageContent(prev => ({ ...prev, products: updatedProducts }));
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'products',
+        title: 'Products Showcase',
+        content: JSON.stringify(updatedProducts),
+      }, { onConflict: 'page_type' });
+
+    if (error) {
+      console.error("Error saving products:", error);
+      toast.error("Failed to delete product");
+    } else {
+      toast.success("Product deleted!");
+    }
+  };
+
+  const replaceProducts = async (products: Product[]) => {
+    setPageContent(prev => ({ ...prev, products }));
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'products',
+        title: 'Products Showcase',
+        content: JSON.stringify(products),
+      }, { onConflict: 'page_type' });
+
+    if (error) {
+      console.error("Error saving products order:", error);
+      toast.error("Failed to reorder products");
+    } else {
+      toast.success("Products order updated!");
+    }
+  };
+
+  const updateServiceCard = async (card: ServiceCard) => {
+    const updatedCards = pageContent.serviceCards.map(s => s.id === card.id ? card : s);
+    setPageContent(prev => ({ ...prev, serviceCards: updatedCards }));
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'service_cards',
+        title: 'Service Cards',
+        content: JSON.stringify(updatedCards),
+      }, { onConflict: 'page_type' });
+
+    if (error) {
+      console.error("Error saving service cards:", error);
+      toast.error("Failed to save service card");
+    } else {
+      toast.success("Service card updated!");
+    }
+  };
+
+  // User Management Functions with Supabase integration
+  const addUser = async (user: AdminUser) => {
+    try {
+      const userId = user.id && user.id.startsWith("user_") ? crypto.randomUUID() : user.id;
+
+      const { error } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
+          role: 'user',
+          email_verified: user.isActive,
+        });
+
+      if (error) {
+        console.error("Error adding user:", error);
+        return { success: false, error: error.message };
+      }
+
+      await loadUsers();
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error adding user:", error);
+      return { success: false, error: error.message || "Failed to add user" };
+    }
+  };
+
+  const updateUser = async (user: AdminUser) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
+          email_verified: user.isActive,
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error("Error updating user:", error);
+        return { success: false, error: error.message };
+      }
+
+      await loadUsers();
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      return { success: false, error: error.message || "Failed to update user" };
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id)
+        .eq('role', 'user');
+
+      if (error) {
+        console.error("Error deleting user:", error);
+        return { success: false, error: error.message };
+      }
+
+      await loadUsers();
+      return { success: true };
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      return { success: false, error: error.message || "Failed to delete user" };
+    }
   };
 
   // Staff Management Functions with Supabase Integration
@@ -1328,9 +2135,129 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (error) {
       console.error("Error saving payment settings:", error);
       toast.error("Failed to save payment settings");
-    } else {
-      toast.success("Payment settings updated!");
+      return;
     }
+
+    // Sync payment settings to Django backend
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/payments/settings/`,
+        {
+          method: "POST",
+          headers: await adminJsonHeaders(),
+          body: JSON.stringify({
+            phonepe: {
+              merchantId: updated.phonepe.merchantId,
+              saltKey: updated.phonepe.saltKey,
+              saltIndex: updated.phonepe.saltIndex,
+              enabled: updated.phonepe.enabled,
+              testMode: updated.phonepe.testMode,
+            },
+            razorpay: {
+              keyId: updated.razorpay.keyId,
+              keySecret: updated.razorpay.keySecret,
+              enabled: updated.razorpay.enabled,
+              testMode: updated.razorpay.testMode,
+            },
+            codEnabled: updated.codEnabled,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const msg = await response.text();
+        console.error("Django sync failed:", msg);
+      }
+    } catch (syncError) {
+      console.error("Error syncing payment settings to Django:", syncError);
+    }
+
+    toast.success("Payment settings updated!");
+  };
+
+  const updateShiprocketSettings = async (newSettings: Partial<ShiprocketSettings>) => {
+    const updated = { ...shiprocketSettings, ...newSettings };
+    setShiprocketSettings(updated);
+
+    const { error } = await supabase
+      .from('content_pages')
+      .upsert({
+        page_type: 'shiprocket_settings',
+        title: 'Shiprocket Settings',
+        content: JSON.stringify(updated),
+      }, {
+        onConflict: 'page_type'
+      });
+
+    if (error) {
+      console.error("Error saving shiprocket settings:", error);
+      toast.error("Failed to save Shiprocket settings");
+      return;
+    }
+
+    // Sync Shiprocket settings to Django backend
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/payments/shiprocket/settings/`,
+        {
+          method: "POST",
+          headers: await adminJsonHeaders(),
+          body: JSON.stringify({
+            enabled: updated.enabled,
+            email: updated.email,
+            password: updated.password,
+            webhookSecret: updated.webhookSecret,
+            pickupLocation: updated.pickupLocation,
+            companyName: updated.companyName,
+            phone: updated.phone,
+            address: updated.address,
+            address2: updated.address2,
+            city: updated.city,
+            state: updated.state,
+            pincode: updated.pincode,
+            country: updated.country,
+            defaultWeight: updated.defaultWeight,
+            defaultLength: updated.defaultLength,
+            defaultBreadth: updated.defaultBreadth,
+            defaultHeight: updated.defaultHeight,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const msg = await response.text();
+        console.error("Django Shiprocket sync failed:", msg);
+      }
+    } catch (syncError) {
+      console.error("Error syncing Shiprocket settings to Django:", syncError);
+    }
+
+    try {
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-a145b27b/shiprocket-settings`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify(updated),
+        }
+      );
+
+      if (!response.ok) {
+        const msg = await response.text();
+        console.error("Shiprocket edge sync failed:", msg);
+        toast.error("Saved in DB, but Shiprocket sync failed. Please redeploy edge function.");
+        return;
+      }
+    } catch (syncError) {
+      console.error("Error syncing shiprocket settings:", syncError);
+      toast.error("Saved in DB, but Shiprocket sync failed. Please redeploy edge function.");
+      return;
+    }
+
+    toast.success("Shiprocket settings updated!");
   };
 
   // Review Management
@@ -1435,16 +2362,31 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         updateStaff,
         deleteStaff,
         orders,
+        refreshOrders,
         updateOrderStatus,
+        updateOrderShipment,
+        auditLogs,
+        loadAuditLogs,
+        logAdminAction,
         pageContent,
         updateHeroContent,
+        updateHeroSlides,
+        updateServicesSection,
+        updateCTASection,
+        updateContactPageContent,
         updateAboutContent,
+        updateProduct,
+        addProduct,
+        deleteProduct,
+        replaceProducts,
+        updateServiceCard,
         addFAQ,
         updateFAQ,
         deleteFAQ,
         addFeature,
         updateFeature,
         deleteFeature,
+        replaceFeatures,
         addTestimonial,
         updateTestimonial,
         deleteTestimonial,
@@ -1457,7 +2399,10 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         updateSEOSettings,
         paymentGateway,
         updatePaymentGateway,
+        shiprocketSettings,
+        updateShiprocketSettings,
         loadingData,
+        catalogCategories,
       }}
     >
       {children}

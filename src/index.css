@@ -4121,7 +4121,7 @@
   --card-foreground: oklch(.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(.145 0 0);
-  --primary: #030213;
+  --primary: #2563eb;
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(.95 .0058 264.53);
   --secondary-foreground: #030213;
@@ -4622,4 +4622,509 @@ html {
   to {
     height: 0;
   }
+}
+
+/* ========================================
+   MLC-INSPIRED DESIGN SYSTEM
+   ======================================== */
+
+:root {
+  /* Primary Colors - Purple */
+  --mlc-primary: #7c3aed;
+  --mlc-primary-dark: #6d28d9;
+  --mlc-primary-light: #a78bfa;
+  --mlc-primary-50: #f5f3ff;
+  --mlc-primary-100: #ede9fe;
+  --mlc-primary-200: #ddd6fe;
+  --mlc-primary-300: #c4b5fd;
+  --mlc-primary-400: #a78bfa;
+  --mlc-primary-500: #8b5cf6;
+  --mlc-primary-600: #7c3aed;
+  --mlc-primary-700: #6d28d9;
+  --mlc-primary-800: #5b21b6;
+  --mlc-primary-900: #4c1d95;
+
+  /* Accent Colors - Gold/Yellow */
+  --mlc-accent: #fbbf24;
+  --mlc-accent-dark: #f59e0b;
+  --mlc-accent-light: #fcd34d;
+  --mlc-accent-50: #fffbeb;
+
+  /* Neutrals */
+  --mlc-gray-50: #f9fafb;
+  --mlc-gray-100: #f3f4f6;
+  --mlc-gray-200: #e5e7eb;
+  --mlc-gray-300: #d1d5db;
+  --mlc-gray-400: #9ca3af;
+  --mlc-gray-500: #6b7280;
+  --mlc-gray-600: #4b5563;
+  --mlc-gray-700: #374151;
+  --mlc-gray-800: #1f2937;
+  --mlc-gray-900: #111827;
+
+  /* Card & Surface */
+  --mlc-card-bg: #ffffff;
+  --mlc-card-border: #e5e7eb;
+  --mlc-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --mlc-card-shadow-hover: 0 10px 25px rgba(124, 58, 237, 0.15), 0 4px 10px rgba(0, 0, 0, 0.08);
+
+  /* Status Colors */
+  --mlc-success: #10b981;
+  --mlc-error: #ef4444;
+  --mlc-warning: #f59e0b;
+  --mlc-info: #3b82f6;
+
+  /* Border Radius */
+  --mlc-radius-sm: 6px;
+  --mlc-radius: 10px;
+  --mlc-radius-lg: 16px;
+  --mlc-radius-xl: 20px;
+  --mlc-radius-full: 9999px;
+}
+
+/* Base Typography */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--mlc-gray-50);
+  color: var(--mlc-gray-900);
+}
+
+/* MLC Card Component */
+.mlc-card {
+  background: var(--mlc-card-bg);
+  border: 1px solid var(--mlc-card-border);
+  border-radius: var(--mlc-radius-lg);
+  box-shadow: var(--mlc-card-shadow);
+  transition: all 0.2s ease;
+}
+
+.mlc-card:hover {
+  box-shadow: var(--mlc-card-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* MLC Button Variants */
+.mlc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: var(--mlc-radius);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.mlc-btn-primary {
+  background: var(--mlc-primary);
+  color: white;
+}
+
+.mlc-btn-primary:hover {
+  background: var(--mlc-primary-dark);
+}
+
+.mlc-btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--mlc-primary);
+  color: var(--mlc-primary);
+}
+
+.mlc-btn-outline:hover {
+  background: var(--mlc-primary-50);
+}
+
+.mlc-btn-ghost {
+  background: transparent;
+  color: var(--mlc-gray-700);
+}
+
+.mlc-btn-ghost:hover {
+  background: var(--mlc-gray-100);
+}
+
+/* MLC Badge */
+.mlc-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--mlc-radius-full);
+}
+
+.mlc-badge-primary {
+  background: var(--mlc-primary);
+  color: white;
+}
+
+.mlc-badge-outline {
+  background: transparent;
+  border: 1px solid var(--mlc-gray-300);
+  color: var(--mlc-gray-700);
+}
+
+.mlc-badge-accent {
+  background: var(--mlc-accent);
+  color: var(--mlc-gray-900);
+}
+
+/* MLC Pill Category Button */
+.mlc-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--mlc-radius-full);
+  border: 1.5px solid var(--mlc-gray-200);
+  background: white;
+  color: var(--mlc-gray-700);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.mlc-pill:hover {
+  border-color: var(--mlc-primary);
+  color: var(--mlc-primary);
+}
+
+.mlc-pill.active {
+  background: var(--mlc-primary);
+  border-color: var(--mlc-primary);
+  color: white;
+}
+
+/* MLC Search Bar */
+.mlc-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--mlc-gray-100);
+  border: 1px solid var(--mlc-gray-200);
+  border-radius: var(--mlc-radius-full);
+  transition: all 0.2s ease;
+}
+
+.mlc-search:focus-within {
+  background: white;
+  border-color: var(--mlc-primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.mlc-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: var(--mlc-gray-900);
+}
+
+.mlc-search input::placeholder {
+  color: var(--mlc-gray-400);
+}
+
+/* MLC Product Card */
+.mlc-product-card {
+  position: relative;
+  background: white;
+  border-radius: var(--mlc-radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--mlc-gray-200);
+  transition: all 0.3s ease;
+}
+
+.mlc-product-card:hover {
+  box-shadow: var(--mlc-card-shadow-hover);
+  transform: translateY(-4px);
+}
+
+.mlc-product-card .wishlist-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.mlc-product-card .wishlist-btn:hover {
+  background: var(--mlc-primary-50);
+}
+
+.mlc-product-card .wishlist-btn.favorited svg {
+  fill: var(--mlc-primary);
+  color: var(--mlc-primary);
+}
+
+.mlc-product-card .product-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: var(--mlc-accent);
+  color: var(--mlc-gray-900);
+  padding: 4px 10px;
+  border-radius: var(--mlc-radius-full);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mlc-product-card .price-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 1.5px solid var(--mlc-primary);
+  border-radius: var(--mlc-radius);
+  color: var(--mlc-primary);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mlc-product-card .price-btn:hover {
+  background: var(--mlc-primary);
+  color: white;
+}
+
+/* MLC Sidebar Filter */
+.mlc-sidebar {
+  background: white;
+  border-radius: var(--mlc-radius-lg);
+  padding: 20px;
+  border: 1px solid var(--mlc-gray-200);
+}
+
+.mlc-sidebar-section {
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--mlc-gray-100);
+  margin-bottom: 20px;
+}
+
+.mlc-sidebar-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.mlc-sidebar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mlc-gray-900);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mlc-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--mlc-gray-700);
+}
+
+.mlc-filter-item:hover {
+  color: var(--mlc-primary);
+}
+
+.mlc-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--mlc-gray-300);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.mlc-filter-item.checked .mlc-checkbox {
+  background: var(--mlc-primary);
+  border-color: var(--mlc-primary);
+}
+
+/* MLC Price Range Slider */
+.mlc-price-range {
+  position: relative;
+  height: 6px;
+  background: var(--mlc-gray-200);
+  border-radius: var(--mlc-radius-full);
+  margin: 20px 0;
+}
+
+.mlc-price-range-fill {
+  position: absolute;
+  height: 100%;
+  background: var(--mlc-primary);
+  border-radius: var(--mlc-radius-full);
+}
+
+.mlc-price-slider {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.mlc-price-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border: 3px solid var(--mlc-primary);
+  border-radius: 50%;
+  cursor: pointer;
+  pointer-events: all;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Star Rating */
+.mlc-stars {
+  display: flex;
+  gap: 2px;
+}
+
+.mlc-star {
+  color: var(--mlc-gray-300);
+}
+
+.mlc-star.filled {
+  color: var(--mlc-accent);
+}
+
+/* MLC Section Headers */
+.mlc-section-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--mlc-gray-900);
+  margin-bottom: 8px;
+}
+
+.mlc-section-subtitle {
+  font-size: 15px;
+  color: var(--mlc-gray-500);
+}
+
+/* MLC Grid */
+.mlc-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+/* MLC Hero Section */
+.mlc-hero {
+  background: linear-gradient(135deg, var(--mlc-primary-700) 0%, var(--mlc-primary-500) 50%, var(--mlc-primary-600) 100%);
+  border-radius: var(--mlc-radius-xl);
+  padding: 60px 40px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+
+.mlc-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 600px;
+  height: 600px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+}
+
+.mlc-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 400px;
+  height: 400px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
+}
+
+/* MLC Social Proof Avatars */
+.mlc-avatar-stack {
+  display: flex;
+  margin-left: -8px;
+}
+
+.mlc-avatar-stack > * {
+  margin-left: -8px;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+.mlc-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* MLC Tab Navigation */
+.mlc-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--mlc-gray-100);
+  padding: 4px;
+  border-radius: var(--mlc-radius-full);
+}
+
+.mlc-tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mlc-gray-600);
+  border-radius: var(--mlc-radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+}
+
+.mlc-tab:hover {
+  color: var(--mlc-gray-900);
+}
+
+.mlc-tab.active {
+  background: white;
+  color: var(--mlc-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Animations */
+@keyframes mlc-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mlc-animate-in {
+  animation: mlc-fade-in 0.4s ease forwards;
 }
